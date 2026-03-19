@@ -1,6 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+
+/* ─── ANALYTICS TRACKER ─── */
+function trackEvent(type: string, data: Record<string, unknown> = {}) {
+  const payload = JSON.stringify({ type, data });
+  try {
+    // sendBeacon needs a Blob with explicit content-type for JSON
+    const blob = new Blob([payload], { type: "application/json" });
+    const sent = navigator.sendBeacon("/api/events", blob);
+    if (!sent) throw new Error("beacon failed");
+  } catch {
+    // Fallback to fetch
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
+  }
+}
 
 /* ─── TYPES ─── */
 interface QuizQuestion {
@@ -105,6 +124,53 @@ export default function Home() {
   const [showUpsell, setShowUpsell] = useState(false);
   const countdown = useCountdown(14);
 
+  // Track page view + scroll + time
+  const hasTrackedView = useRef(false);
+  const maxScroll = useRef(0);
+  const startTime = useRef(Date.now());
+
+  useEffect(() => {
+    if (!hasTrackedView.current) {
+      trackEvent("page_view", { referrer: document.referrer || "direct" });
+      hasTrackedView.current = true;
+    }
+
+    // Scroll depth tracking (debounced)
+    let scrollTimer: ReturnType<typeof setTimeout>;
+    const handleScroll = () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        const pct = Math.round(
+          ((window.scrollY + window.innerHeight) /
+            document.documentElement.scrollHeight) *
+            100
+        );
+        if (pct > maxScroll.current) {
+          maxScroll.current = pct;
+        }
+      }, 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+
+    // Send scroll depth + time on page when leaving
+    const handleLeave = () => {
+      const seconds = Math.round((Date.now() - startTime.current) / 1000);
+      trackEvent("page_leave", {
+        scroll_depth: maxScroll.current,
+        time_on_page: seconds,
+      });
+    };
+    window.addEventListener("beforeunload", handleLeave);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") handleLeave();
+    });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("beforeunload", handleLeave);
+    };
+  }, []);
+
   const score = answers.reduce((sum, a) => sum + SCORE_TO_POINTS[a], 0);
   const result = getResult(score);
 
@@ -112,16 +178,32 @@ export default function Home() {
     (answerIndex: number) => {
       const newAnswers = [...answers, answerIndex];
       setAnswers(newAnswers);
+
+      trackEvent("quiz_answer", {
+        question: step + 1,
+        answer: answerIndex,
+        points: SCORE_TO_POINTS[answerIndex],
+      });
+
       if (step < 2) {
         setStep(step + 1);
       } else {
         setStep(3);
+        const finalScore = newAnswers.reduce(
+          (sum, a) => sum + SCORE_TO_POINTS[a],
+          0
+        );
+        trackEvent("quiz_complete", {
+          score: finalScore,
+          risk: getResult(finalScore).risk,
+        });
       }
     },
     [answers, step]
   );
 
   const handleCTA = () => {
+    trackEvent("cta_click", { score, risk: result.risk });
     setShowUpsell(true);
   };
 
@@ -374,6 +456,7 @@ export default function Home() {
 
                 <a
                   href={upsellLink}
+                  onClick={() => trackEvent("upsell_yes", { target: "completo" })}
                   className="block w-full bg-red hover:bg-red-dark text-white font-bold text-base py-4 rounded-xl text-center transition-all duration-200 active:scale-[0.97] mb-3"
                 >
                   Sì, voglio il metodo completo →
@@ -381,6 +464,7 @@ export default function Home() {
 
                 <a
                   href={baseLink}
+                  onClick={() => trackEvent("upsell_no", { target: "base" })}
                   className="block w-full text-center text-muted text-sm py-2 hover:text-txt transition-colors"
                 >
                   No grazie, ho già quello base →

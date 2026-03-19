@@ -1,7 +1,37 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
+function trackEvent(type: string, data: Record<string, unknown> = {}) {
+  const payload = JSON.stringify({ type, data });
+  try {
+    const blob = new Blob([payload], { type: "application/json" });
+    const sent = navigator.sendBeacon("/api/events", blob);
+    if (!sent) throw new Error("beacon failed");
+  } catch {
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
+  }
+}
+
 export default function GraziePage() {
   const pdfUrl = process.env.NEXT_PUBLIC_PDF_URL || "/scopri-la-verita.pdf";
+  const tracked = useRef(false);
+
+  useEffect(() => {
+    if (!tracked.current) {
+      tracked.current = true;
+      // Track the purchase — referrer tells us which Stripe link they came from
+      trackEvent("purchase", {
+        referrer: document.referrer || "direct",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, []);
 
   return (
     <main className="min-h-screen bg-bg flex items-center justify-center px-5">
