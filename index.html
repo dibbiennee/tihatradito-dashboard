@@ -104,6 +104,12 @@
   /* API key notice */
   .api-notice { background: rgba(232,0,29,0.1); border: 1px solid var(--red); border-radius: 10px; padding: 12px; font-size: 12px; color: var(--red); margin-bottom: 16px; display: none; }
   .api-notice.show { display: block; }
+
+  /* Siren flash */
+  @keyframes urgentFlash {
+    0%, 100% { color: var(--red); text-shadow: 0 0 20px rgba(232,0,29,0.5); }
+    50% { color: #ff4444; text-shadow: 0 0 40px rgba(255,68,68,0.8); }
+  }
 </style>
 </head>
 <body>
@@ -111,7 +117,11 @@
   <div class="header">
     <div>
       <h1>🎯 Mission Control</h1>
-      <p class="target">Target: €1.000 entro le 08:00</p>
+      <p class="target">Target: €1.000 entro le 08:00 <button class="btn btn-ghost btn-sm" onclick="triggerSiren()" style="margin-left:8px;font-size:11px">🚨 Test Sirena</button> <button class="btn btn-ghost btn-sm" onclick="playCashSound()" style="font-size:11px">💰 Test DRIN</button></p>
+    </div>
+    <div class="stat" style="flex:0 0 auto">
+      <div class="value" id="countdownTimer" style="font-size:42px;color:var(--red);font-variant-numeric:tabular-nums;letter-spacing:2px">--:--:--</div>
+      <div class="label">Tempo rimanente</div>
     </div>
     <div class="stat">
       <div class="value" id="totalRevenue">€0</div>
@@ -133,9 +143,76 @@
   <!-- Tabs -->
   <div class="tabs">
     <button class="tab active" onclick="switchTab('monitor')">📊 Monitor</button>
+    <button class="tab" onclick="switchTab('analytics')">👁️ Analytics</button>
     <button class="tab" onclick="switchTab('ai')">🤖 AI Analyst</button>
     <button class="tab" onclick="switchTab('video')">🎬 Analizza Video</button>
     <button class="tab" onclick="switchTab('setup')">⚙️ Setup</button>
+  </div>
+
+  <!-- TAB: Analytics -->
+  <div class="tab-content" id="tab-analytics">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <span class="badge badge-green" id="analyticsStatus">● LIVE</span>
+        <span class="last-update" id="analyticsLastUpdate" style="margin-left:8px">Polling ogni 15s</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="fetchAnalytics()">🔄 Aggiorna</button>
+        <button class="btn btn-ghost btn-sm" id="autoPollBtn" onclick="toggleAutoPoll()">⏸️ Pausa auto</button>
+      </div>
+    </div>
+
+    <!-- Live counters -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px;color:var(--green)" id="liveVisitors">0</div>
+        <div class="label">Visitatori unici</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px" id="livePageViews">0</div>
+        <div class="label">Page views</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px;color:var(--red)" id="liveCtaClicks">0</div>
+        <div class="label">CTA clicks</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px" id="liveConvRate">0%</div>
+        <div class="label">Conv. rate</div>
+      </div>
+    </div>
+
+    <!-- Funnel -->
+    <div class="card">
+      <h3>🔻 Funnel di conversione</h3>
+      <div id="funnelChart" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Hourly -->
+    <div class="card">
+      <h3>📈 Visitatori per ora (ultime 24h)</h3>
+      <div id="hourlyChart" style="display:flex;align-items:flex-end;gap:4px;height:120px;margin-top:12px"></div>
+    </div>
+
+    <!-- Recent events -->
+    <div class="card">
+      <h3>🕐 Ultimi eventi</h3>
+      <div id="recentEvents" style="max-height:300px;overflow-y:auto">
+        <p style="color:var(--muted);font-size:13px">In attesa di dati...</p>
+      </div>
+    </div>
+
+    <!-- Scroll & time stats -->
+    <div class="card-row">
+      <div class="card">
+        <h3>📜 Scroll depth medio</h3>
+        <div id="avgScroll" style="font-size:24px;font-weight:700">—</div>
+      </div>
+      <div class="card">
+        <h3>⏱️ Tempo medio sulla pagina</h3>
+        <div id="avgTime" style="font-size:24px;font-weight:700">—</div>
+      </div>
+    </div>
   </div>
 
   <!-- TAB: Monitor -->
@@ -241,6 +318,7 @@
       <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Per aggiornare automaticamente views/like/commenti/share dei video TikTok. Tokapi su rapidapi.com (free tier: 100 req/giorno).</p>
       <input type="password" id="rapidApiKeyInput" placeholder="la_tua_rapidapi_key...">
       <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveRapidApiKey()">Salva RapidAPI Key</button>
+      <div id="rapidUsage" style="margin-top:8px;font-size:12px;color:var(--muted)">0/100 chiamate usate oggi</div>
     </div>
 
     <div class="card-row" id="setupCards"></div>
@@ -265,6 +343,20 @@
     </div>
 
     <div class="card">
+      <h3>🌐 URL sito (per analytics)</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">L'URL del tuo sito Vercel per caricare le analytics live.</p>
+      <input type="text" id="siteUrlInput" placeholder="https://tihatradito.site" value="https://tihatradito.site">
+      <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveSiteUrl()">Salva URL</button>
+    </div>
+
+    <div class="card">
+      <h3>📲 Condividi key su altro dispositivo</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Genera un link che include le tue API key. Aprilo sull'iMac per importarle automaticamente. Il link funziona una sola volta.</p>
+      <button class="btn btn-red btn-sm" onclick="generateKeyShareLink()">Genera link condivisione</button>
+      <div id="shareLink" style="margin-top:8px;font-size:12px;word-break:break-all"></div>
+    </div>
+
+    <div class="card">
       <h3>📝 Note</h3>
       <textarea id="notes" placeholder="Note tecniche, idee, appunti..." rows="4"></textarea>
       <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="saveNotes()">Salva note</button>
@@ -273,64 +365,109 @@
 </div>
 
 <script>
-// ─── CASH SOUND ───
+// ─── CASH REGISTER SOUND (realistic ka-ching!) ───
 function playCashSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = ctx.currentTime;
 
-    // "Ka-ching" — two-part cash register sound
-    // Part 1: Quick metallic click
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'square';
-    osc1.frequency.setValueAtTime(2000, ctx.currentTime);
-    osc1.frequency.exponentialRampToValueAtTime(4000, ctx.currentTime + 0.05);
-    gain1.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.08);
+    // Layer 1: Mechanical click (cash drawer opening)
+    const click = ctx.createOscillator();
+    const clickGain = ctx.createGain();
+    click.type = 'square';
+    click.frequency.setValueAtTime(1200, t);
+    click.frequency.exponentialRampToValueAtTime(300, t + 0.03);
+    clickGain.gain.setValueAtTime(0.4, t);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    click.connect(clickGain);
+    clickGain.connect(ctx.destination);
+    click.start(t);
+    click.stop(t + 0.05);
 
-    // Part 2: Bright "ching" ring
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(3500, ctx.currentTime + 0.06);
-    osc2.frequency.exponentialRampToValueAtTime(2800, ctx.currentTime + 0.5);
-    gain2.gain.setValueAtTime(0, ctx.currentTime);
-    gain2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(ctx.currentTime + 0.06);
-    osc2.stop(ctx.currentTime + 0.6);
+    // Layer 2: Bell hit — the main "CHING"
+    const bell1 = ctx.createOscillator();
+    const bell1Gain = ctx.createGain();
+    bell1.type = 'sine';
+    bell1.frequency.setValueAtTime(2637, t + 0.04); // E7 note
+    bell1.frequency.exponentialRampToValueAtTime(2093, t + 1.2); // slight drop
+    bell1Gain.gain.setValueAtTime(0, t);
+    bell1Gain.gain.linearRampToValueAtTime(0.5, t + 0.06);
+    bell1Gain.gain.exponentialRampToValueAtTime(0.01, t + 1.2);
+    bell1.connect(bell1Gain);
+    bell1Gain.connect(ctx.destination);
+    bell1.start(t + 0.04);
+    bell1.stop(t + 1.3);
 
-    // Part 3: Harmonic shimmer
-    const osc3 = ctx.createOscillator();
-    const gain3 = ctx.createGain();
-    osc3.type = 'sine';
-    osc3.frequency.setValueAtTime(5200, ctx.currentTime + 0.07);
-    osc3.frequency.exponentialRampToValueAtTime(4000, ctx.currentTime + 0.4);
-    gain3.gain.setValueAtTime(0, ctx.currentTime);
-    gain3.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.09);
-    gain3.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-    osc3.connect(gain3);
-    gain3.connect(ctx.destination);
-    osc3.start(ctx.currentTime + 0.07);
-    osc3.stop(ctx.currentTime + 0.5);
+    // Layer 3: Harmonic overtone (makes it sound metallic/bell-like)
+    const bell2 = ctx.createOscillator();
+    const bell2Gain = ctx.createGain();
+    bell2.type = 'sine';
+    bell2.frequency.setValueAtTime(5274, t + 0.04); // octave up
+    bell2Gain.gain.setValueAtTime(0, t);
+    bell2Gain.gain.linearRampToValueAtTime(0.2, t + 0.06);
+    bell2Gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+    bell2.connect(bell2Gain);
+    bell2Gain.connect(ctx.destination);
+    bell2.start(t + 0.04);
+    bell2.stop(t + 0.9);
+
+    // Layer 4: Sub-harmonic warmth
+    const sub = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(1318, t + 0.05); // E6
+    subGain.gain.setValueAtTime(0, t);
+    subGain.gain.linearRampToValueAtTime(0.15, t + 0.07);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+    sub.connect(subGain);
+    subGain.connect(ctx.destination);
+    sub.start(t + 0.05);
+    sub.stop(t + 1.1);
+
+    // Layer 5: Coins jingling (noise burst)
+    const bufferSize = ctx.sampleRate * 0.15;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseGain = ctx.createGain();
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(6000, t);
+    noiseFilter.Q.setValueAtTime(2, t);
+    noiseGain.gain.setValueAtTime(0.12, t + 0.04);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start(t + 0.04);
 
     // Cleanup
-    setTimeout(() => ctx.close(), 1000);
+    setTimeout(() => ctx.close(), 2000);
   } catch(e) { console.log('Audio not supported'); }
 }
 
 // ─── STATE ───
 let state = {
   profiles: [
-    { id: 'a', name: 'Profilo A', handle: '@profiloA', price: 0.99, sales: 0, videos: [] },
-    { id: 'b', name: 'Profilo B', handle: '@profiloB', price: 2.99, sales: 0, videos: [] },
-    { id: 'c', name: 'Profilo C', handle: '@profiloC', price: 4.99, sales: 0, videos: [] },
+    { id: 'a', name: 'Profilo A', handle: '@eleaffar26', price: 0.99, sales: 0, videos: [
+      { hook: 'Video 1', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619074692749462806' },
+      { hook: 'Video 2', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619074455255682326' },
+      { hook: 'Video 3', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619073911459761430' },
+    ]},
+    { id: 'b', name: 'Profilo B', handle: '@elii0071', price: 2.99, sales: 0, videos: [
+      { hook: 'Video 1', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619075786426928406' },
+      { hook: 'Video 2', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619075496323730710' },
+      { hook: 'Video 3', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619075149119098134' },
+    ]},
+    { id: 'c', name: 'Profilo C', handle: '@lollellouser', price: 9.99, sales: 0, videos: [
+      { hook: 'Video 1', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619077013277592854' },
+      { hook: 'Video 2', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619076543838489879' },
+      { hook: 'Video 3', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619076327710297346' },
+    ]},
   ],
   log: [],
   aiHistory: [],
@@ -343,7 +480,16 @@ function loadState() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      state = { ...state, ...parsed };
+      // If saved state has videos loaded already, use it fully
+      const hasVideos = parsed.profiles && parsed.profiles.some(p => p.videos && p.videos.length > 0);
+      if (hasVideos) {
+        state = { ...state, ...parsed };
+      } else {
+        // Keep default profiles with preloaded videos, merge other data
+        state.log = parsed.log || [];
+        state.aiHistory = parsed.aiHistory || [];
+        state.notes = parsed.notes || '';
+      }
     } catch(e) {}
   }
 }
@@ -377,9 +523,22 @@ function switchTab(name) {
   event.target.classList.add('active');
 }
 
+// ─── HELPERS ───
+function getAvgPrice() {
+  // Weighted average price across profiles — fallback to 0.99
+  const prices = state.profiles.map(p => p.price);
+  if (prices.length === 0) return 0.99;
+  return prices.reduce((s, p) => s + p, 0) / prices.length;
+}
+
 // ─── RENDER ───
 function render() {
-  const totalRevenue = state.profiles.reduce((sum, p) => sum + (p.sales * p.price), 0);
+  const manualRevenue = state.profiles.reduce((sum, p) => sum + (p.sales * p.price), 0);
+  // Also count analytics purchases (from /grazie page tracking)
+  const analyticsPurchases = analyticsData?.counts?.purchase || 0;
+  const analyticsRevenue = analyticsPurchases * getAvgPrice();
+  // Use the HIGHER of manual or analytics revenue (avoid double counting)
+  const totalRevenue = Math.max(manualRevenue, analyticsRevenue);
   const pct = Math.min((totalRevenue / 1000) * 100, 100);
 
   document.getElementById('totalRevenue').textContent = '€' + totalRevenue.toFixed(2);
@@ -510,6 +669,15 @@ function render() {
     document.getElementById('rapidApiKeyInput').value = '••••••••••••••••';
   }
 
+  // Site URL
+  document.getElementById('siteUrlInput').value = getSiteUrl();
+
+  // RapidAPI usage counter
+  const today = new Date().toISOString().slice(0, 10);
+  if (rapidApiCallDate !== today) { rapidApiCallCount = 0; }
+  const rapidUsage = document.getElementById('rapidUsage');
+  if (rapidUsage) rapidUsage.textContent = `${rapidApiCallCount}/100 chiamate usate oggi`;
+
   // Last update
   if (state.lastUpdate) {
     const d = new Date(state.lastUpdate);
@@ -605,7 +773,9 @@ async function fetchVideoStats(videoId) {
     alert('Inserisci la RapidAPI key nel tab Setup');
     return null;
   }
+  if (!checkRapidApiLimit()) return null;
   try {
+    trackRapidApiCall();
     const res = await fetch(
       `https://tokapi-mobile-version.p.rapidapi.com/v1/post/${videoId}`,
       { headers: {
@@ -828,9 +998,315 @@ Sii diretto e pratico.`;
   }
 }
 
+// ─── SITE URL ───
+function getSiteUrl() {
+  return localStorage.getItem('site_url') || 'https://tihatradito.site';
+}
+
+function saveSiteUrl() {
+  const url = document.getElementById('siteUrlInput').value.trim().replace(/\/$/, '');
+  if (url) {
+    localStorage.setItem('site_url', url);
+    addLog('URL sito salvato: ' + url);
+  }
+}
+
+// ─── KEY SHARING (MacBook → iMac) ───
+function generateKeyShareLink() {
+  const anthropicKey = getApiKey();
+  const rapidKey = getRapidApiKey();
+  const siteUrl = getSiteUrl();
+  if (!anthropicKey && !rapidKey) {
+    alert('Nessuna key da condividere. Inseriscile prima.');
+    return;
+  }
+  const payload = btoa(JSON.stringify({ a: anthropicKey, r: rapidKey, s: siteUrl }));
+  const dashboardUrl = window.location.href.split('#')[0].split('?')[0];
+  const link = dashboardUrl + '?keys=' + encodeURIComponent(payload);
+  document.getElementById('shareLink').innerHTML =
+    `<span style="color:var(--green)">✅ Link generato!</span><br><a href="${link}" style="color:var(--red)" target="_blank">${link.substring(0, 80)}...</a><br><button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="navigator.clipboard.writeText('${link}')">📋 Copia link</button>`;
+}
+
+function importKeysFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const keysParam = params.get('keys');
+  if (!keysParam) return;
+  try {
+    const payload = JSON.parse(atob(decodeURIComponent(keysParam)));
+    if (payload.a) localStorage.setItem('anthropic_api_key', payload.a);
+    if (payload.r) localStorage.setItem('rapidapi_key', payload.r);
+    if (payload.s) localStorage.setItem('site_url', payload.s);
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+    addLog('🔑 Key importate da link di condivisione!');
+  } catch(e) { console.error('Key import failed', e); }
+}
+
+// ─── ANALYTICS ───
+let analyticsData = null;
+let autoPollEnabled = true;
+let autoPollInterval = null;
+let lastKnownPurchases = -1; // -1 = not yet initialized
+
+async function fetchAnalytics() {
+  try {
+    const siteUrl = getSiteUrl();
+    const res = await fetch(siteUrl + '/api/events', { mode: 'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    analyticsData = await res.json();
+
+    // 🔔 AUTO-DETECT NEW PURCHASE → DRIN!
+    const currentPurchases = analyticsData.counts?.purchase || 0;
+    if (lastKnownPurchases === -1) {
+      // First load — just sync, don't ring for existing purchases
+      lastKnownPurchases = currentPurchases;
+    } else if (currentPurchases > lastKnownPurchases) {
+      // New sale detected!
+      const newSales = currentPurchases - lastKnownPurchases;
+      for (let i = 0; i < newSales; i++) {
+        setTimeout(() => playCashSound(), i * 800);
+      }
+      addLog(`💰🔔 ${newSales} NUOVA VENDITA RILEVATA! (totale: ${currentPurchases})`);
+
+      // Flash the revenue
+      const el = document.getElementById('totalRevenue');
+      el.style.animation = 'urgentFlash 0.3s ease 5';
+      setTimeout(() => el.style.animation = '', 1500);
+    }
+    lastKnownPurchases = currentPurchases;
+
+    renderAnalytics();
+    render(); // Update revenue header from analytics purchase data
+    document.getElementById('analyticsLastUpdate').textContent =
+      'Aggiornato: ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch(err) {
+    console.error('Analytics fetch error:', err);
+    document.getElementById('analyticsStatus').textContent = '⚠️ Errore';
+    document.getElementById('analyticsStatus').className = 'badge badge-red';
+  }
+}
+
+function renderAnalytics() {
+  if (!analyticsData) return;
+  const d = analyticsData;
+
+  // Counters
+  document.getElementById('liveVisitors').textContent = d.unique_visitors || 0;
+  document.getElementById('livePageViews').textContent = d.counts?.page_view || 0;
+  document.getElementById('liveCtaClicks').textContent = d.counts?.cta_click || 0;
+
+  const pv = d.counts?.page_view || 0;
+  const cta = d.counts?.cta_click || 0;
+  const convRate = pv > 0 ? ((cta / pv) * 100).toFixed(1) : '0';
+  document.getElementById('liveConvRate').textContent = convRate + '%';
+
+  // Funnel
+  const funnel = d.funnel || {};
+  const funnelSteps = [
+    { label: 'Page View', value: funnel.page_view || 0, color: 'var(--text)' },
+    { label: 'Quiz Start', value: funnel.quiz_start || 0, color: '#3b82f6' },
+    { label: 'Quiz Complete', value: funnel.quiz_complete || 0, color: '#8b5cf6' },
+    { label: 'CTA Click', value: funnel.cta_click || 0, color: 'var(--red)' },
+    { label: 'Upsell Sì', value: funnel.upsell_yes || 0, color: 'var(--green)' },
+    { label: 'Upsell No', value: funnel.upsell_no || 0, color: 'var(--muted)' },
+    { label: '💰 Acquisto', value: funnel.purchase || 0, color: '#fbbf24' },
+  ];
+  const maxFunnel = Math.max(...funnelSteps.map(s => s.value), 1);
+  document.getElementById('funnelChart').innerHTML = funnelSteps.map(s => {
+    const pct = Math.max((s.value / maxFunnel) * 100, 2);
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div style="width:100px;font-size:12px;color:var(--muted);text-align:right">${s.label}</div>
+      <div style="flex:1;background:var(--bg3);border-radius:6px;height:24px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${s.color};border-radius:6px;transition:width 0.3s"></div>
+      </div>
+      <div style="width:40px;font-size:13px;font-weight:600">${s.value}</div>
+    </div>`;
+  }).join('');
+
+  // Hourly chart
+  const hourly = d.hourly || [];
+  const maxHourly = Math.max(...hourly.map(h => h.visitors), 1);
+  document.getElementById('hourlyChart').innerHTML = hourly.map(h => {
+    const height = Math.max((h.visitors / maxHourly) * 100, 2);
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:10px;color:var(--muted)">${h.visitors}</div>
+      <div style="width:100%;height:${height}px;background:var(--red);border-radius:3px 3px 0 0;min-height:2px"></div>
+      <div style="font-size:9px;color:var(--muted)">${h.hour}</div>
+    </div>`;
+  }).join('');
+
+  // Recent events
+  const recent = d.recent || [];
+  if (recent.length > 0) {
+    document.getElementById('recentEvents').innerHTML = recent.slice(0, 30).map(e => {
+      const time = new Date(e.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const typeColors = {
+        page_view: '#22c55e', quiz_answer: '#3b82f6', quiz_complete: '#8b5cf6',
+        cta_click: '#e8001d', upsell_yes: '#22c55e', upsell_no: '#888',
+        page_leave: '#666', purchase: '#fbbf24',
+      };
+      const color = typeColors[e.type] || 'var(--muted)';
+      const dataStr = e.data && Object.keys(e.data).length > 0 ? ' · ' + Object.entries(e.data).map(([k,v]) => `${k}=${v}`).join(', ') : '';
+      return `<div class="log-entry"><span class="time">${time}</span><span style="color:${color};font-weight:600">${e.type}</span>${dataStr}</div>`;
+    }).join('');
+  }
+
+  // Scroll & time averages
+  const leaveEvents = recent.filter(e => e.type === 'page_leave');
+  if (leaveEvents.length > 0) {
+    const avgScroll = Math.round(leaveEvents.reduce((s, e) => s + (e.data?.scroll_depth || 0), 0) / leaveEvents.length);
+    const avgSec = Math.round(leaveEvents.reduce((s, e) => s + (e.data?.time_on_page || 0), 0) / leaveEvents.length);
+    document.getElementById('avgScroll').textContent = avgScroll + '%';
+    document.getElementById('avgTime').textContent = avgSec > 60 ? Math.floor(avgSec/60) + 'm ' + (avgSec%60) + 's' : avgSec + 's';
+  }
+
+  document.getElementById('analyticsStatus').textContent = '● LIVE';
+  document.getElementById('analyticsStatus').className = 'badge badge-green';
+}
+
+function toggleAutoPoll() {
+  autoPollEnabled = !autoPollEnabled;
+  const btn = document.getElementById('autoPollBtn');
+  if (autoPollEnabled) {
+    btn.textContent = '⏸️ Pausa auto';
+    startAutoPoll();
+  } else {
+    btn.textContent = '▶️ Riprendi auto';
+    if (autoPollInterval) clearInterval(autoPollInterval);
+  }
+}
+
+function startAutoPoll() {
+  if (autoPollInterval) clearInterval(autoPollInterval);
+  autoPollInterval = setInterval(() => {
+    if (autoPollEnabled) fetchAnalytics();
+  }, 15000); // 15 secondi
+}
+
+// ─── RAPIDAPI RATE LIMIT PROTECTION ───
+let rapidApiCallCount = parseInt(localStorage.getItem('rapid_call_count') || '0');
+let rapidApiCallDate = localStorage.getItem('rapid_call_date') || '';
+
+function checkRapidApiLimit() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (rapidApiCallDate !== today) {
+    rapidApiCallCount = 0;
+    rapidApiCallDate = today;
+  }
+  if (rapidApiCallCount >= 90) { // 90 instead of 100 for safety margin
+    alert(`⚠️ Hai usato ${rapidApiCallCount}/100 chiamate RapidAPI oggi. Limite quasi raggiunto! Aspetta domani.`);
+    return false;
+  }
+  return true;
+}
+
+function trackRapidApiCall() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (rapidApiCallDate !== today) {
+    rapidApiCallCount = 0;
+    rapidApiCallDate = today;
+  }
+  rapidApiCallCount++;
+  localStorage.setItem('rapid_call_count', rapidApiCallCount.toString());
+  localStorage.setItem('rapid_call_date', today);
+}
+
+// ─── COUNTDOWN TIMER TO 08:00 ───
+function updateCountdown() {
+  const now = new Date();
+  let target = new Date(now);
+  target.setHours(8, 0, 0, 0);
+  // If it's already past 08:00, target is tomorrow
+  if (now >= target) target.setDate(target.getDate() + 1);
+
+  const diff = target - now;
+  if (diff <= 0) {
+    document.getElementById('countdownTimer').textContent = '⏰ TEMPO SCADUTO';
+    document.getElementById('countdownTimer').style.color = '#ff4444';
+    return;
+  }
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  document.getElementById('countdownTimer').textContent =
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+  // Color changes based on urgency
+  if (h < 1) {
+    document.getElementById('countdownTimer').style.color = '#ff4444';
+  } else if (h < 3) {
+    document.getElementById('countdownTimer').style.color = '#ff8c00';
+  } else {
+    document.getElementById('countdownTimer').style.color = 'var(--red)';
+  }
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
+
+// ─── STARTUP SIREN (10 seconds) ───
+function playSiren() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const duration = 10;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+
+    // Siren: oscillates between 400Hz and 900Hz
+    for (let i = 0; i < duration * 2; i++) {
+      const t = ctx.currentTime + i * 0.5;
+      osc.frequency.setValueAtTime(400, t);
+      osc.frequency.linearRampToValueAtTime(900, t + 0.25);
+      osc.frequency.linearRampToValueAtTime(400, t + 0.5);
+    }
+
+    // Fade out at the end
+    gain.gain.setValueAtTime(0.2, ctx.currentTime + duration - 1);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+
+    // Visual feedback
+    const el = document.getElementById('countdownTimer');
+    el.style.animation = 'urgentFlash 0.5s ease infinite';
+    setTimeout(() => {
+      el.style.animation = '';
+      ctx.close();
+      // Play the cash sound right after siren ends
+      playCashSound();
+    }, duration * 1000);
+  } catch(e) { console.log('Siren not supported:', e); }
+}
+
+// Check for midnight launch
+function checkMidnightLaunch() {
+  const launched = localStorage.getItem('midnight_launched');
+  const now = new Date();
+  if (!launched && now.getHours() === 0 && now.getMinutes() === 0) {
+    localStorage.setItem('midnight_launched', 'true');
+    playSiren();
+    addLog('🚀🚨 MISSIONE INIZIATA — SIRENA ATTIVATA!');
+    render();
+  }
+}
+setInterval(checkMidnightLaunch, 1000);
+
+// Manual siren trigger for testing
+function triggerSiren() {
+  playSiren();
+  addLog('🚨 Sirena test attivata!');
+}
+
 // ─── INIT ───
+importKeysFromUrl();
 loadState();
 render();
+fetchAnalytics();
+startAutoPoll();
 </script>
 </body>
 </html>
