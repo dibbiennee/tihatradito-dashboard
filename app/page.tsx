@@ -121,7 +121,6 @@ function useCountdown(minutes: number) {
 export default function Home() {
   const [step, setStep] = useState(0); // 0-2 = quiz questions, 3 = result
   const [answers, setAnswers] = useState<number[]>([]);
-  const [showUpsell, setShowUpsell] = useState(false);
   const countdown = useCountdown(14);
 
   // Track page view + scroll + time
@@ -202,15 +201,13 @@ export default function Home() {
     [answers, step]
   );
 
-  const handleCTA = () => {
-    trackEvent("cta_click", { score, risk: result.risk });
-    setShowUpsell(true);
-  };
-
   const baseLink =
     process.env.NEXT_PUBLIC_STRIPE_BASE_LINK || "#";
-  const upsellLink =
-    process.env.NEXT_PUBLIC_STRIPE_UPSELL_LINK || baseLink;
+
+  const handleCTA = () => {
+    trackEvent("cta_click", { score, risk: result.risk });
+    window.location.href = baseLink;
+  };
 
   return (
     <main className="min-h-screen bg-bg">
@@ -413,65 +410,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ─── UPSELL BOTTOM SHEET ─── */}
-          {showUpsell && (
-            <div
-              className="fixed inset-0 z-50 flex items-end justify-center"
-              onClick={() => setShowUpsell(false)}
-            >
-              {/* Backdrop */}
-              <div className="absolute inset-0 bg-black/70" />
-
-              {/* Sheet */}
-              <div
-                className="relative w-full max-w-lg bg-bg2 border-t border-border rounded-t-3xl p-6 pb-10 slide-up no-scrollbar"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Handle */}
-                <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
-
-                <div className="text-center mb-4">
-                  <div className="inline-block bg-red/10 text-red text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
-                    🔥 Offerta esclusiva
-                  </div>
-                  <h3 className="text-2xl mb-2">Vuoi il metodo completo?</h3>
-                  <p className="text-muted text-sm">
-                    Solo €2,99 — include tutto quello che ti serve davvero
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-2.5 mb-6">
-                  {[
-                    "Come leggere le conversazioni cancellate",
-                    "Metodo avanzato per Instagram e Snapchat",
-                    "Come fare screenshot senza che se ne accorga",
-                    "3 segnali che non mentono mai",
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-sm">
-                      <span className="text-red">✓</span>
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <a
-                  href={upsellLink}
-                  onClick={() => trackEvent("upsell_yes", { target: "completo" })}
-                  className="block w-full bg-red hover:bg-red-dark text-white font-bold text-base py-4 rounded-xl text-center transition-all duration-200 active:scale-[0.97] mb-3"
-                >
-                  Sì, voglio il metodo completo →
-                </a>
-
-                <a
-                  href={baseLink}
-                  onClick={() => trackEvent("upsell_no", { target: "base" })}
-                  className="block w-full text-center text-muted text-sm py-2 hover:text-txt transition-colors"
-                >
-                  No grazie, ho già quello base →
-                </a>
-              </div>
-            </div>
-          )}
         </>
       )}
 
