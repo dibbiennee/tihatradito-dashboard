@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2026-02-25.clover",
-});
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY || "sk_placeholder", {
+    apiVersion: "2026-02-25.clover",
+  });
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -14,6 +16,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const stripe = getStripe();
     const event = stripe.webhooks.constructEvent(
       body,
       sig,
@@ -22,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
-      console.log("✅ Pagamento ricevuto:", {
+      console.log("Pagamento ricevuto:", {
         email: session.customer_details?.email,
         amount: session.amount_total,
         time: new Date().toISOString(),
@@ -35,3 +38,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Webhook failed" }, { status: 400 });
   }
 }
+
+export const dynamic = "force-dynamic";
