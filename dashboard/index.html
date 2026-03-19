@@ -230,6 +230,24 @@
   }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in { animation: fadeIn 0.3s ease forwards; }
+
+  /* Smooth number transitions */
+  .stat-value, .header-stat .value, .rev-amount, #avgScroll, #avgTime {
+    transition: transform 0.15s ease;
+  }
+  .stat-bump { animation: bump 0.3s ease; }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  /* Smooth bar fills */
+  .revenue-fill { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+  #funnelChart div div div { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+  /* Pulse on new data */
+  .stat-card { transition: border-color 0.3s, box-shadow 0.3s; }
+  .stat-flash { border-color: var(--red) !important; box-shadow: 0 0 12px var(--red-glow) !important; }
+  .stat-flash-green { border-color: var(--green) !important; box-shadow: 0 0 12px var(--green-glow) !important; }
 </style>
 </head>
 <body>
@@ -444,6 +462,72 @@
 </div>
 
 <script>
+// ─── SMOOTH NUMBER ANIMATIONS ───
+function animateValue(el, newValue, prefix = '', suffix = '', duration = 600) {
+  // Parse current value from element
+  const currentText = el.textContent.replace(/[^0-9.\-]/g, '');
+  const current = parseFloat(currentText) || 0;
+  const target = typeof newValue === 'number' ? newValue : (parseFloat(newValue) || 0);
+
+  if (current === target) return; // No change
+
+  const startTime = performance.now();
+  const diff = target - current;
+  const isDecimal = String(target).includes('.') || prefix === '€';
+
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function step(timestamp) {
+    const elapsed = timestamp - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = easeOutCubic(progress);
+    const val = current + diff * eased;
+
+    if (isDecimal) {
+      el.textContent = prefix + val.toFixed(2) + suffix;
+    } else {
+      el.textContent = prefix + Math.round(val) + suffix;
+    }
+
+    if (progress < 1) requestAnimationFrame(step);
+  }
+
+  // Bump animation
+  el.classList.remove('stat-bump');
+  void el.offsetWidth; // Force reflow
+  el.classList.add('stat-bump');
+
+  requestAnimationFrame(step);
+}
+
+// Flash a stat card briefly when value changes
+function flashCard(el, type = 'red') {
+  const card = el.closest('.stat-card');
+  if (!card) return;
+  const cls = type === 'green' ? 'stat-flash-green' : 'stat-flash';
+  card.classList.add(cls);
+  setTimeout(() => card.classList.remove(cls), 800);
+}
+
+// Helper: update only if changed, with animation
+function smoothUpdate(id, newValue, prefix = '', suffix = '', flashType = 'red') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const currentText = el.textContent;
+  const newText = prefix + (typeof newValue === 'number' && (prefix === '€' || String(newValue).includes('.')) ? newValue.toFixed(2) : newValue) + suffix;
+  if (currentText !== newText) {
+    if (typeof newValue === 'number') {
+      animateValue(el, newValue, prefix, suffix);
+    } else {
+      el.textContent = newText;
+      el.classList.remove('stat-bump');
+      void el.offsetWidth;
+      el.classList.add('stat-bump');
+    }
+    flashCard(el, flashType);
+  }
+}
+
 // ─── CASH REGISTER SOUND ───
 function playCashSound() {
   try {
@@ -582,8 +666,8 @@ function render() {
   const totalRevenue = Math.max(manualRevenue, analyticsRevenue);
   const pct = Math.min((totalRevenue / 1000) * 100, 100);
 
-  document.getElementById('totalRevenue').textContent = '€' + totalRevenue.toFixed(2);
-  document.getElementById('revenuePercent').textContent = pct.toFixed(1) + '%';
+  animateValue(document.getElementById('totalRevenue'), totalRevenue, '€', '', 800);
+  animateValue(document.getElementById('revenuePercent'), parseFloat(pct.toFixed(1)), '', '%', 600);
   document.getElementById('revenueFill').style.width = pct + '%';
 
   const maxRevenue = Math.max(...state.profiles.map(p => p.sales * p.price));
@@ -897,11 +981,13 @@ async function fetchAnalytics() {
 function renderAnalytics() {
   if (!analyticsData) return;
   const d = analyticsData;
-  document.getElementById('liveVisitors').textContent = d.unique_visitors || 0;
-  document.getElementById('livePageViews').textContent = d.counts?.page_view || 0;
-  document.getElementById('liveCtaClicks').textContent = d.counts?.cta_click || 0;
+  smoothUpdate('liveVisitors', d.unique_visitors || 0, '', '', 'green');
+  smoothUpdate('livePageViews', d.counts?.page_view || 0);
+  smoothUpdate('liveCtaClicks', d.counts?.cta_click || 0);
   const pv = d.counts?.page_view || 0, cta = d.counts?.cta_click || 0;
-  document.getElementById('liveConvRate').textContent = (pv > 0 ? ((cta / pv) * 100).toFixed(1) : '0') + '%';
+  const convRate = pv > 0 ? parseFloat(((cta / pv) * 100).toFixed(1)) : 0;
+  animateValue(document.getElementById('liveConvRate'), convRate, '', '%', 400);
+  flashCard(document.getElementById('liveConvRate'));
 
   const funnel = d.funnel || {};
   const steps = [
@@ -949,9 +1035,15 @@ function renderAnalytics() {
 
   const leaves = recent.filter(e => e.type === 'page_leave');
   if (leaves.length > 0) {
-    document.getElementById('avgScroll').textContent = Math.round(leaves.reduce((s, e) => s + (e.data?.scroll_depth||0), 0) / leaves.length) + '%';
+    const avgScrollVal = Math.round(leaves.reduce((s, e) => s + (e.data?.scroll_depth||0), 0) / leaves.length);
+    animateValue(document.getElementById('avgScroll'), avgScrollVal, '', '%', 500);
     const sec = Math.round(leaves.reduce((s, e) => s + (e.data?.time_on_page||0), 0) / leaves.length);
-    document.getElementById('avgTime').textContent = sec > 60 ? Math.floor(sec/60) + 'm ' + (sec%60) + 's' : sec + 's';
+    const timeStr = sec > 60 ? Math.floor(sec/60) + 'm ' + (sec%60) + 's' : sec + 's';
+    const timeEl = document.getElementById('avgTime');
+    if (timeEl.textContent !== timeStr) {
+      timeEl.textContent = timeStr;
+      timeEl.classList.remove('stat-bump'); void timeEl.offsetWidth; timeEl.classList.add('stat-bump');
+    }
   }
   document.getElementById('analyticsStatus').textContent = '● LIVE';
   document.getElementById('analyticsStatus').className = 'badge badge-green';
