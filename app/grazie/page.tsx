@@ -1,7 +1,7 @@
 "use client";
 
 export default function GraziePage() {
-  const pdfUrl = process.env.NEXT_PUBLIC_PDF_URL || "#";
+  const pdfUrl = process.env.NEXT_PUBLIC_PDF_URL || "/scopri-la-verita.pdf";
 
   return (
     <main className="min-h-screen bg-bg flex items-center justify-center px-5">
