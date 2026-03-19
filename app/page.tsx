@@ -1,65 +1,402 @@
-import Image from "next/image";
+"use client";
 
+import { useState, useEffect, useCallback } from "react";
+
+/* ─── TYPES ─── */
+interface QuizQuestion {
+  question: string;
+  answers: string[];
+}
+
+interface QuizResult {
+  label: string;
+  risk: number;
+  text: string;
+}
+
+/* ─── DATA ─── */
+const QUESTIONS: QuizQuestion[] = [
+  {
+    question: "Il suo comportamento è cambiato ultimamente?",
+    answers: [
+      "Sì, molto — è diventato/a distante",
+      "Un po' — ogni tanto è strano/a",
+      "Non so — forse sono io che esagero",
+      "No, tutto normale",
+    ],
+  },
+  {
+    question: "Come si comporta con il telefono quando sei vicino/a?",
+    answers: [
+      "Lo nasconde o lo gira sempre",
+      "Spesso è distratto/a dallo schermo",
+      "Lo usa normalmente ma ci scherza su",
+      "Nessun problema con il telefono",
+    ],
+  },
+  {
+    question: "Da quanto tempo hai questo dubbio?",
+    answers: [
+      "Più di un mese — non riesco a smettere",
+      "Qualche settimana — ogni tanto ci penso",
+      "Da pochi giorni — è successa una cosa",
+      "Da sempre, sono gelosissimo/a",
+    ],
+  },
+];
+
+const SCORE_TO_POINTS = [3, 2, 1, 0];
+
+function getResult(score: number): QuizResult {
+  if (score >= 7)
+    return {
+      label: "Segnali molto preoccupanti",
+      risk: 85,
+      text: "I segnali che descrivi sono tra i più comuni nei casi confermati. Non ignorarli.",
+    };
+  if (score >= 4)
+    return {
+      label: "Segnali da non ignorare",
+      risk: 68,
+      text: "Il tuo istinto potrebbe avere ragione. Questi segnali meritano attenzione.",
+    };
+  return {
+    label: "Il dubbio esiste per un motivo",
+    risk: 55,
+    text: "Anche con pochi segnali, il fatto che tu sia qui dice qualcosa. Fidati del tuo istinto.",
+  };
+}
+
+/* ─── COUNTDOWN HOOK ─── */
+function useCountdown(minutes: number) {
+  const [timeLeft, setTimeLeft] = useState(minutes * 60);
+
+  useEffect(() => {
+    const STORAGE_KEY = "countdown_start";
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const now = Date.now();
+
+    if (stored) {
+      const elapsed = Math.floor((now - parseInt(stored)) / 1000);
+      const remaining = minutes * 60 - elapsed;
+      setTimeLeft(remaining > 0 ? remaining : 0);
+    } else {
+      localStorage.setItem(STORAGE_KEY, now.toString());
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [minutes]);
+
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+/* ═══════════════════════════════════════
+   MAIN PAGE
+   ═══════════════════════════════════════ */
 export default function Home() {
+  const [step, setStep] = useState(0); // 0-2 = quiz questions, 3 = result
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [showUpsell, setShowUpsell] = useState(false);
+  const countdown = useCountdown(14);
+
+  const score = answers.reduce((sum, a) => sum + SCORE_TO_POINTS[a], 0);
+  const result = getResult(score);
+
+  const handleAnswer = useCallback(
+    (answerIndex: number) => {
+      const newAnswers = [...answers, answerIndex];
+      setAnswers(newAnswers);
+      if (step < 2) {
+        setStep(step + 1);
+      } else {
+        setStep(3);
+      }
+    },
+    [answers, step]
+  );
+
+  const handleCTA = () => {
+    setShowUpsell(true);
+  };
+
+  const baseLink =
+    process.env.NEXT_PUBLIC_STRIPE_BASE_LINK || "#";
+  const upsellLink =
+    process.env.NEXT_PUBLIC_STRIPE_UPSELL_LINK || baseLink;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-bg">
+      {/* ─── HERO ─── */}
+      <section className="px-5 pt-12 pb-8 max-w-lg mx-auto fade-up">
+        <div className="inline-block bg-red/10 text-red text-xs font-semibold px-3 py-1.5 rounded-full mb-6 tracking-wide">
+          ⚡ Metodo riservato
+        </div>
+        <h1 className="text-4xl md:text-5xl leading-tight mb-4">
+          Hai il <span className="text-red">dubbio</span>?
+        </h1>
+        <p className="text-muted text-base leading-relaxed mb-6">
+          Rispondi a 3 domande. Scopri se stai facendo la cosa giusta — e come
+          ottenere la verità in meno di 10 minuti.
+        </p>
+        <div className="flex items-center gap-2">
+          <div className="flex -space-x-2">
+            {["👩", "👨", "👩‍🦱", "🧑"].map((emoji, i) => (
+              <div
+                key={i}
+                className="w-8 h-8 rounded-full bg-bg3 border-2 border-bg flex items-center justify-center text-sm"
+              >
+                {emoji}
+              </div>
+            ))}
+          </div>
+          <span className="text-muted text-sm">
+            +847 persone hanno già scoperto la verità
+          </span>
+        </div>
+      </section>
+
+      {/* ─── QUIZ ─── */}
+      {step < 3 && (
+        <section className="px-5 pb-8 max-w-lg mx-auto fade-up fade-up-1">
+          {/* Progress */}
+          <div className="flex gap-2 mb-6">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-1.5 flex-1 rounded-full overflow-hidden bg-bg3"
+              >
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    i < step
+                      ? "bg-red w-full"
+                      : i === step
+                      ? "bg-red/60 w-1/2 progress-pulse"
+                      : "w-0"
+                  }`}
+                />
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-muted mb-3 uppercase tracking-widest">
+            Domanda {step + 1} di 3
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          <h2 className="text-2xl mb-5 leading-snug">
+            {QUESTIONS[step].question}
+          </h2>
+
+          <div className="flex flex-col gap-3">
+            {QUESTIONS[step].answers.map((answer, i) => (
+              <button
+                key={i}
+                onClick={() => handleAnswer(i)}
+                className="w-full text-left bg-bg2 border border-border rounded-xl px-4 py-3.5 text-sm text-txt transition-all duration-200 hover:border-red/50 hover:bg-bg3 active:scale-[0.98]"
+              >
+                {answer}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── RESULT ─── */}
+      {step === 3 && (
+        <>
+          <section className="px-5 pb-8 max-w-lg mx-auto fade-up">
+            <div className="bg-bg2 border border-border rounded-2xl p-6">
+              <div className="text-3xl mb-3">🔴</div>
+              <h2 className="text-2xl mb-2">{result.label}</h2>
+              <p className="text-muted text-sm leading-relaxed mb-5">
+                {result.text}
+              </p>
+
+              {/* Risk bar */}
+              <div className="relative">
+                <div className="flex justify-between text-xs text-muted mb-2">
+                  <span>Basso rischio</span>
+                  <span className="text-red font-semibold">
+                    {result.risk}% — Alto rischio
+                  </span>
+                </div>
+                <div className="h-3 bg-bg3 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full risk-bar-fill"
+                    style={{
+                      width: `${result.risk}%`,
+                      background:
+                        "linear-gradient(90deg, #e8001d 0%, #ff4444 100%)",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ─── FEATURES ─── */}
+          <section className="px-5 pb-8 max-w-lg mx-auto fade-up fade-up-2">
+            <div className="flex flex-col gap-4">
+              {[
+                {
+                  icon: "🕵️",
+                  title: "Metodo silenzioso",
+                  desc: "Non sa nulla. Tu ottieni tutte le risposte.",
+                },
+                {
+                  icon: "⚡",
+                  title: "Risultati in 10 minuti",
+                  desc: "Funziona su WhatsApp, Instagram, Snapchat.",
+                },
+                {
+                  icon: "🔒",
+                  title: "100% privato",
+                  desc: "Accesso immediato. Nessuna registrazione.",
+                },
+              ].map((f, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 bg-bg2 border border-border rounded-xl p-4"
+                >
+                  <span className="text-2xl">{f.icon}</span>
+                  <div>
+                    <p className="font-semibold text-sm mb-0.5">{f.title}</p>
+                    <p className="text-muted text-xs">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ─── TESTIMONIALS ─── */}
+          <section className="px-5 pb-8 max-w-lg mx-auto fade-up fade-up-3">
+            <div className="flex flex-col gap-3">
+              {[
+                {
+                  name: "Martina, 24",
+                  city: "Milano",
+                  text: "Avevo il dubbio da mesi. In 15 minuti ho scoperto tutto.",
+                },
+                {
+                  name: "Sara, 27",
+                  city: "Roma",
+                  text: "Ho speso meno di un caffè e mi ha cambiato la vita.",
+                },
+              ].map((t, i) => (
+                <div
+                  key={i}
+                  className="bg-bg2 border border-border rounded-xl p-4"
+                >
+                  <p className="text-sm mb-2 leading-relaxed">
+                    &ldquo;{t.text}&rdquo;
+                  </p>
+                  <p className="text-xs text-muted">
+                    — {t.name} ({t.city})
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ─── URGENCY + CTA ─── */}
+          <section className="px-5 pb-12 max-w-lg mx-auto fade-up fade-up-4">
+            <div className="text-center">
+              <p className="text-sm text-muted mb-1">
+                Offerta attiva ancora per
+              </p>
+              <p className="text-2xl font-bold text-red urgent-pulse mb-4">
+                {countdown}
+              </p>
+
+              <div className="mb-4">
+                <span className="text-muted line-through text-lg mr-2">
+                  €19,99
+                </span>
+                <span className="text-3xl font-bold text-txt">€0,99</span>
+              </div>
+
+              <button
+                onClick={handleCTA}
+                className="w-full bg-red hover:bg-red-dark text-white font-bold text-lg py-4 px-6 rounded-xl transition-all duration-200 active:scale-[0.97] mb-3"
+              >
+                Scopri la verità adesso →
+              </button>
+              <p className="text-xs text-muted">
+                Accesso immediato · Pagamento sicuro Stripe
+              </p>
+            </div>
+          </section>
+
+          {/* ─── UPSELL BOTTOM SHEET ─── */}
+          {showUpsell && (
+            <div
+              className="fixed inset-0 z-50 flex items-end justify-center"
+              onClick={() => setShowUpsell(false)}
+            >
+              {/* Backdrop */}
+              <div className="absolute inset-0 bg-black/70" />
+
+              {/* Sheet */}
+              <div
+                className="relative w-full max-w-lg bg-bg2 border-t border-border rounded-t-3xl p-6 pb-10 slide-up no-scrollbar"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Handle */}
+                <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
+
+                <div className="text-center mb-4">
+                  <div className="inline-block bg-red/10 text-red text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
+                    🔥 Offerta esclusiva
+                  </div>
+                  <h3 className="text-2xl mb-2">Vuoi il metodo completo?</h3>
+                  <p className="text-muted text-sm">
+                    Solo €2,99 — include tutto quello che ti serve davvero
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2.5 mb-6">
+                  {[
+                    "Come leggere le conversazioni cancellate",
+                    "Metodo avanzato per Instagram e Snapchat",
+                    "Come fare screenshot senza che se ne accorga",
+                    "3 segnali che non mentono mai",
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2.5 text-sm">
+                      <span className="text-red">✓</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <a
+                  href={upsellLink}
+                  className="block w-full bg-red hover:bg-red-dark text-white font-bold text-base py-4 rounded-xl text-center transition-all duration-200 active:scale-[0.97] mb-3"
+                >
+                  Sì, voglio il metodo completo →
+                </a>
+
+                <a
+                  href={baseLink}
+                  className="block w-full text-center text-muted text-sm py-2 hover:text-txt transition-colors"
+                >
+                  No grazie, ho già quello base →
+                </a>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ─── FOOTER ─── */}
+      <footer className="px-5 py-8 text-center">
+        <p className="text-xs text-muted/50">
+          © {new Date().getFullYear()} — Tutti i diritti riservati
+        </p>
+      </footer>
+    </main>
   );
 }
