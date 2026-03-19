@@ -67,6 +67,15 @@ export async function POST(req: NextRequest) {
       const text = await req.text();
       body = JSON.parse(text);
     }
+
+    // Reset command — clears all data
+    if (body.type === "__reset") {
+      (globalThis as Record<string, unknown>)[STORE_KEY] = [];
+      (globalThis as Record<string, unknown>)[VISITORS_KEY] = new Set<string>();
+      (globalThis as Record<string, unknown>)[HOURLY_KEY] = {};
+      return NextResponse.json({ ok: true, reset: true }, { headers: corsHeaders });
+    }
+
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
