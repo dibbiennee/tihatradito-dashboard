@@ -534,9 +534,26 @@ function getAvgPrice() {
 // ─── RENDER ───
 function render() {
   const manualRevenue = state.profiles.reduce((sum, p) => sum + (p.sales * p.price), 0);
-  // Also count analytics purchases (from /grazie page tracking)
+  // Calculate analytics revenue from actual purchase events with price data
+  let analyticsRevenue = 0;
   const analyticsPurchases = analyticsData?.counts?.purchase || 0;
-  const analyticsRevenue = analyticsPurchases * getAvgPrice();
+  if (analyticsData?.recent) {
+    // Sum actual prices from purchase events
+    const purchaseEvents = analyticsData.recent.filter(e => e.type === 'purchase');
+    const sumFromEvents = purchaseEvents.reduce((s, e) => s + (parseFloat(e.data?.price) || 0), 0);
+    // If we have price data, use it; otherwise fall back to count * base price
+    if (sumFromEvents > 0) {
+      // recent only has last 100 events, but for purchases the total count may be higher
+      // Use sumFromEvents for known prices, add base price for any unaccounted purchases
+      const knownPurchases = purchaseEvents.length;
+      const unknownPurchases = Math.max(0, analyticsPurchases - knownPurchases);
+      analyticsRevenue = sumFromEvents + (unknownPurchases * 0.99);
+    } else {
+      analyticsRevenue = analyticsPurchases * 0.99; // fallback: base price
+    }
+  } else {
+    analyticsRevenue = analyticsPurchases * 0.99;
+  }
   // Use the HIGHER of manual or analytics revenue (avoid double counting)
   const totalRevenue = Math.max(manualRevenue, analyticsRevenue);
   const pct = Math.min((totalRevenue / 1000) * 100, 100);

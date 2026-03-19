@@ -18,6 +18,32 @@ function trackEvent(type: string, data: Record<string, unknown> = {}) {
   }
 }
 
+// Map Stripe Payment Link IDs to prices
+const STRIPE_PRICES: Record<string, number> = {
+  "3hg9IQ0p": 0.99,   // Profilo A — base
+  "dVU9IQ0q": 2.99,   // Profilo B — upsell
+  "7xw9IQ0r": 9.99,   // Profilo C — premium
+};
+
+function detectPrice(): number {
+  // Try to detect price from Stripe referrer URL or from URL search params
+  const ref = document.referrer || "";
+  const url = window.location.href;
+  const search = new URLSearchParams(window.location.search);
+
+  // Check if Stripe sends any identifying info
+  for (const [key, price] of Object.entries(STRIPE_PRICES)) {
+    if (ref.includes(key) || url.includes(key)) return price;
+  }
+
+  // Check for price param (can be added to Stripe success URL)
+  const priceParam = search.get("p");
+  if (priceParam) return parseFloat(priceParam) || 0.99;
+
+  // Default to base price
+  return 0.99;
+}
+
 export default function GraziePage() {
   const pdfUrl = process.env.NEXT_PUBLIC_PDF_URL || "/scopri-la-verita.pdf";
   const tracked = useRef(false);
@@ -25,8 +51,9 @@ export default function GraziePage() {
   useEffect(() => {
     if (!tracked.current) {
       tracked.current = true;
-      // Track the purchase — referrer tells us which Stripe link they came from
+      const price = detectPrice();
       trackEvent("purchase", {
+        price,
         referrer: document.referrer || "direct",
         timestamp: new Date().toISOString(),
       });
