@@ -1,32 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// CORS headers for dashboard access from any origin
+// Edge runtime with SINGLE region = all requests hit the same instance
+// This is critical: without preferredRegion, requests scatter across regions
+// and each region has its own globalThis, so data appears empty
+export const runtime = "edge";
+export const preferredRegion = "fra1"; // Frankfurt — closest to Italy
+export const dynamic = "force-dynamic";
+
+// CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// In-memory store (resets on cold start, good enough for tonight)
-const events: Array<{
+// ─── PERSISTENT STORE via globalThis ───
+// On edge runtime with a single preferred region, globalThis persists
+// between invocations as long as the instance stays warm.
+// With dashboard polling every 15s, the instance stays warm indefinitely.
+
+interface EventEntry {
   type: string;
   data: Record<string, unknown>;
   timestamp: string;
   ip: string;
-}> = [];
+}
 
-// Visitor tracking
-const visitors = new Set<string>();
-const hourlyVisitors: Record<string, Set<string>> = {};
+const STORE_KEY = "__tihatradito_events_v2";
+const VISITORS_KEY = "__tihatradito_visitors_v2";
+const HOURLY_KEY = "__tihatradito_hourly_v2";
+const INIT_KEY = "__tihatradito_init_v2";
+
+function getEvents(): EventEntry[] {
+  if (!(globalThis as Record<string, unknown>)[STORE_KEY]) {
+    (globalThis as Record<string, unknown>)[STORE_KEY] = [];
+  }
+  return (globalThis as Record<string, unknown>)[STORE_KEY] as EventEntry[];
+}
+
+function getVisitors(): Set<string> {
+  if (!(globalThis as Record<string, unknown>)[VISITORS_KEY]) {
+    (globalThis as Record<string, unknown>)[VISITORS_KEY] = new Set<string>();
+  }
+  return (globalThis as Record<string, unknown>)[VISITORS_KEY] as Set<string>;
+}
+
+function getHourlyVisitors(): Record<string, Set<string>> {
+  if (!(globalThis as Record<string, unknown>)[HOURLY_KEY]) {
+    (globalThis as Record<string, unknown>)[HOURLY_KEY] = {} as Record<string, Set<string>>;
+  }
+  return (globalThis as Record<string, unknown>)[HOURLY_KEY] as Record<string, Set<string>>;
+}
 
 // Handle CORS preflight
 export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
+  return new Response("{}", { headers: corsHeaders });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // Handle both JSON and text content types (sendBeacon may send as text)
     let body;
     const contentType = req.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
@@ -36,7 +68,11 @@ export async function POST(req: NextRequest) {
       body = JSON.parse(text);
     }
     const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+    const events = getEvents();
+    const visitors = getVisitors();
+    const hourlyVisitors = getHourlyVisitors();
 
     // Track unique visitor
     visitors.add(ip);
@@ -56,7 +92,10 @@ export async function POST(req: NextRequest) {
     // Keep last 10000 events max
     if (events.length > 10000) events.splice(0, events.length - 10000);
 
-    return NextResponse.json({ ok: true }, { headers: corsHeaders });
+    return NextResponse.json(
+      { ok: true, stored: events.length },
+      { headers: corsHeaders }
+    );
   } catch {
     return NextResponse.json(
       { error: "bad request" },
@@ -66,7 +105,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  // Aggregate stats
+  const events = getEvents();
+  const visitors = getVisitors();
+  const hourlyVisitors = getHourlyVisitors();
+
   const now = new Date();
   const counts: Record<string, number> = {};
   const last100 = events.slice(-100);
@@ -112,5 +154,3 @@ export async function GET() {
     { headers: corsHeaders }
   );
 }
-
-export const dynamic = "force-dynamic";
