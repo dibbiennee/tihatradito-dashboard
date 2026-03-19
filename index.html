@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Control — €1.000 Target</title>
+<style>
+  :root {
+    --red: #e8001d;
+    --red-dark: #a80015;
+    --bg: #080808;
+    --bg2: #111111;
+    --bg3: #1a1a1a;
+    --text: #f0f0f0;
+    --muted: #888;
+    --border: #2a2a2a;
+    --green: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  /* Layout */
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .header h1 { font-size: 24px; font-weight: 700; }
+  .header .target { color: var(--red); font-size: 14px; font-weight: 600; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg2); border-radius: 12px; padding: 4px; overflow-x: auto; }
+  .tab { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); background: transparent; border: none; white-space: nowrap; transition: all 0.2s; }
+  .tab.active { background: var(--bg3); color: var(--text); }
+  .tab:hover { color: var(--text); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Cards */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+  .card h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+  .card-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+
+  /* Revenue bar */
+  .revenue-bar { height: 24px; background: var(--bg3); border-radius: 12px; overflow: hidden; margin: 12px 0; position: relative; }
+  .revenue-fill { height: 100%; background: linear-gradient(90deg, var(--red), #ff4444); border-radius: 12px; transition: width 0.5s ease; min-width: 2px; }
+  .revenue-label { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; }
+
+  /* Inputs */
+  input, textarea, select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 13px; width: 100%; font-family: inherit; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--red); }
+  textarea { resize: vertical; min-height: 80px; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; margin-top: 8px; }
+
+  /* Buttons */
+  .btn { padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+  .btn-red { background: var(--red); color: white; }
+  .btn-red:hover { background: var(--red-dark); }
+  .btn-ghost { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--muted); }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: var(--red)/15%; color: var(--red); background: rgba(232,0,29,0.15); }
+  .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+
+  /* Video table */
+  .video-row { display: grid; grid-template-columns: 1fr 80px 80px 80px 80px 40px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .video-row:last-child { border-bottom: none; }
+  .video-row input { width: 70px; text-align: center; padding: 4px; }
+  .video-row .hook { font-size: 13px; }
+  .video-id-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; padding: 4px 0; }
+  .video-id-row input { width: auto; flex: 1; font-size: 11px; padding: 3px 8px; color: var(--muted); }
+  .btn-refresh { background: none; border: none; cursor: pointer; font-size: 16px; padding: 2px; transition: transform 0.3s; }
+  .btn-refresh:hover { transform: rotate(180deg); }
+  .btn-refresh.spinning { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .last-update { font-size: 11px; color: var(--muted); }
+
+  /* Recommendations */
+  .reco { padding: 10px 14px; background: var(--bg3); border-radius: 10px; margin-bottom: 8px; font-size: 13px; border-left: 3px solid var(--red); }
+  .reco.good { border-left-color: var(--green); }
+
+  /* Log */
+  .log-entry { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .log-entry .time { color: var(--muted); margin-right: 8px; }
+
+  /* AI */
+  .ai-response { background: var(--bg3); border-radius: 12px; padding: 16px; margin-top: 12px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+  .ai-history { max-height: 400px; overflow-y: auto; }
+  .quick-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+  /* Stat */
+  .stat { text-align: center; }
+  .stat .value { font-size: 32px; font-weight: 700; }
+  .stat .label { font-size: 12px; color: var(--muted); }
+
+  .winner { border-color: var(--green) !important; }
+  .winner-badge { background: var(--green); color: #000; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 8px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* API key notice */
+  .api-notice { background: rgba(232,0,29,0.1); border: 1px solid var(--red); border-radius: 10px; padding: 12px; font-size: 12px; color: var(--red); margin-bottom: 16px; display: none; }
+  .api-notice.show { display: block; }
+
+  /* Siren flash */
+  @keyframes urgentFlash {
+    0%, 100% { color: var(--red); text-shadow: 0 0 20px rgba(232,0,29,0.5); }
+    50% { color: #ff4444; text-shadow: 0 0 40px rgba(255,68,68,0.8); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>🎯 Mission Control</h1>
+      <p class="target">Target: €1.000 entro le 08:00 <button class="btn btn-ghost btn-sm" onclick="triggerSiren()" style="margin-left:8px;font-size:11px">🚨 Test Sirena</button></p>
+    </div>
+    <div class="stat" style="flex:0 0 auto">
+      <div class="value" id="countdownTimer" style="font-size:42px;color:var(--red);font-variant-numeric:tabular-nums;letter-spacing:2px">--:--:--</div>
+      <div class="label">Tempo rimanente</div>
+    </div>
+    <div class="stat">
+      <div class="value" id="totalRevenue">€0</div>
+      <div class="label">Revenue totale</div>
+    </div>
+  </div>
+
+  <!-- Revenue Progress -->
+  <div class="card" style="margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+      <span id="revenuePercent">0%</span>
+      <span>€1.000</span>
+    </div>
+    <div class="revenue-bar">
+      <div class="revenue-fill" id="revenueFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('monitor')">📊 Monitor</button>
+    <button class="tab" onclick="switchTab('analytics')">👁️ Analytics</button>
+    <button class="tab" onclick="switchTab('ai')">🤖 AI Analyst</button>
+    <button class="tab" onclick="switchTab('video')">🎬 Analizza Video</button>
+    <button class="tab" onclick="switchTab('setup')">⚙️ Setup</button>
+  </div>
+
+  <!-- TAB: Analytics -->
+  <div class="tab-content" id="tab-analytics">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <span class="badge badge-green" id="analyticsStatus">● LIVE</span>
+        <span class="last-update" id="analyticsLastUpdate" style="margin-left:8px">Polling ogni 15s</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="fetchAnalytics()">🔄 Aggiorna</button>
+        <button class="btn btn-ghost btn-sm" id="autoPollBtn" onclick="toggleAutoPoll()">⏸️ Pausa auto</button>
+      </div>
+    </div>
+
+    <!-- Live counters -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px;color:var(--green)" id="liveVisitors">0</div>
+        <div class="label">Visitatori unici</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px" id="livePageViews">0</div>
+        <div class="label">Page views</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px;color:var(--red)" id="liveCtaClicks">0</div>
+        <div class="label">CTA clicks</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:0">
+        <div class="value" style="font-size:28px" id="liveConvRate">0%</div>
+        <div class="label">Conv. rate</div>
+      </div>
+    </div>
+
+    <!-- Funnel -->
+    <div class="card">
+      <h3>🔻 Funnel di conversione</h3>
+      <div id="funnelChart" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Hourly -->
+    <div class="card">
+      <h3>📈 Visitatori per ora (ultime 24h)</h3>
+      <div id="hourlyChart" style="display:flex;align-items:flex-end;gap:4px;height:120px;margin-top:12px"></div>
+    </div>
+
+    <!-- Recent events -->
+    <div class="card">
+      <h3>🕐 Ultimi eventi</h3>
+      <div id="recentEvents" style="max-height:300px;overflow-y:auto">
+        <p style="color:var(--muted);font-size:13px">In attesa di dati...</p>
+      </div>
+    </div>
+
+    <!-- Scroll & time stats -->
+    <div class="card-row">
+      <div class="card">
+        <h3>📜 Scroll depth medio</h3>
+        <div id="avgScroll" style="font-size:24px;font-weight:700">—</div>
+      </div>
+      <div class="card">
+        <h3>⏱️ Tempo medio sulla pagina</h3>
+        <div id="avgTime" style="font-size:24px;font-weight:700">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Monitor -->
+  <div class="tab-content active" id="tab-monitor">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <span class="last-update" id="lastUpdate">Ultimo aggiornamento: mai</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="refreshAllVideos()" id="refreshAllBtn">🔄 Aggiorna tutto</button>
+    </div>
+    <div class="card-row" id="profileCards"></div>
+
+    <div class="card">
+      <h3>📋 Raccomandazioni</h3>
+      <div id="recommendations">
+        <p style="color:var(--muted);font-size:13px">Inserisci dati video per ricevere raccomandazioni.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Log aggiornamenti</h3>
+      <div id="logEntries" style="max-height:300px;overflow-y:auto">
+        <p style="color:var(--muted);font-size:13px">Nessun aggiornamento ancora.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: AI Analyst -->
+  <div class="tab-content" id="tab-ai">
+    <div id="apiNotice" class="api-notice">
+      ⚠️ Inserisci la tua API key Anthropic nel tab Setup per usare l'AI Analyst.
+    </div>
+
+    <div class="card">
+      <h3>🤖 Analisi AI</h3>
+      <label>Tipo di analisi</label>
+      <select id="aiAnalysisType">
+        <option value="all">Tutti i profili</option>
+        <option value="a">Solo Profilo A</option>
+        <option value="b">Solo Profilo B</option>
+        <option value="c">Solo Profilo C</option>
+        <option value="ab">A/B Test comparazione</option>
+        <option value="next">Prossima mossa</option>
+        <option value="hooks">Nuovi hook</option>
+        <option value="archive">Cosa archiviare</option>
+      </select>
+
+      <div class="quick-btns">
+        <button class="btn btn-ghost btn-sm" onclick="quickAnalysis('next')">Prossima mossa</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickAnalysis('hooks')">Nuovi hook</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickAnalysis('ab')">A/B Test</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickAnalysis('archive')">Cosa archivio</button>
+      </div>
+
+      <button class="btn btn-red" onclick="runAIAnalysis()" id="aiBtn">Analizza con Claude</button>
+
+      <div id="aiResult"></div>
+    </div>
+
+    <div class="card">
+      <h3>📜 Storico analisi</h3>
+      <div id="aiHistory" class="ai-history">
+        <p style="color:var(--muted);font-size:13px">Nessuna analisi ancora.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Analizza Video -->
+  <div class="tab-content" id="tab-video">
+    <div class="card">
+      <h3>🎬 Analizza un video</h3>
+      <label>Hook del video</label>
+      <input type="text" id="videoHook" placeholder="Es: Ho scoperto come spiare il telefono del mio ragazzo">
+      <label>Caption</label>
+      <input type="text" id="videoCaption" placeholder="Es: Link in bio #tradimento">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label>Views</label><input type="number" id="videoViews" placeholder="0"></div>
+        <div><label>Like</label><input type="number" id="videoLikes" placeholder="0"></div>
+        <div><label>Commenti</label><input type="number" id="videoComments" placeholder="0"></div>
+        <div><label>Share</label><input type="number" id="videoShares" placeholder="0"></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <button class="btn btn-red" onclick="analyzeVideo()" id="videoBtn">Analizza con Claude</button>
+      </div>
+
+      <div id="videoResult"></div>
+    </div>
+  </div>
+
+  <!-- TAB: Setup -->
+  <div class="tab-content" id="tab-setup">
+    <div class="card">
+      <h3>🔑 API Key Anthropic</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Questa chiave resta solo nel tuo browser (localStorage). Non viene mai inviata altrove.</p>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+      <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveApiKey()">Salva API Key</button>
+    </div>
+
+    <div class="card">
+      <h3>🔑 RapidAPI Key (TikTok Stats)</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Per aggiornare automaticamente views/like/commenti/share dei video TikTok. Tokapi su rapidapi.com (free tier: 100 req/giorno).</p>
+      <input type="password" id="rapidApiKeyInput" placeholder="la_tua_rapidapi_key...">
+      <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveRapidApiKey()">Salva RapidAPI Key</button>
+      <div id="rapidUsage" style="margin-top:8px;font-size:12px;color:var(--muted)">0/100 chiamate usate oggi</div>
+    </div>
+
+    <div class="card-row" id="setupCards"></div>
+
+    <div class="card">
+      <h3>💰 Aggiorna vendite</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div>
+          <label>Vendite Profilo A</label>
+          <input type="number" id="salesA" value="0" onchange="updateSales()">
+        </div>
+        <div>
+          <label>Vendite Profilo B</label>
+          <input type="number" id="salesB" value="0" onchange="updateSales()">
+        </div>
+        <div>
+          <label>Vendite Profilo C</label>
+          <input type="number" id="salesC" value="0" onchange="updateSales()">
+        </div>
+      </div>
+      <button class="btn btn-red btn-sm" style="margin-top:12px" onclick="updateSales()">Aggiorna revenue</button>
+    </div>
+
+    <div class="card">
+      <h3>🌐 URL sito (per analytics)</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">L'URL del tuo sito Vercel per caricare le analytics live.</p>
+      <input type="text" id="siteUrlInput" placeholder="https://tihatradito.site" value="https://tihatradito.site">
+      <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveSiteUrl()">Salva URL</button>
+    </div>
+
+    <div class="card">
+      <h3>📲 Condividi key su altro dispositivo</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Genera un link che include le tue API key. Aprilo sull'iMac per importarle automaticamente. Il link funziona una sola volta.</p>
+      <button class="btn btn-red btn-sm" onclick="generateKeyShareLink()">Genera link condivisione</button>
+      <div id="shareLink" style="margin-top:8px;font-size:12px;word-break:break-all"></div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Note</h3>
+      <textarea id="notes" placeholder="Note tecniche, idee, appunti..." rows="4"></textarea>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="saveNotes()">Salva note</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CASH SOUND ───
+function playCashSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // "Ka-ching" — two-part cash register sound
+    // Part 1: Quick metallic click
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'square';
+    osc1.frequency.setValueAtTime(2000, ctx.currentTime);
+    osc1.frequency.exponentialRampToValueAtTime(4000, ctx.currentTime + 0.05);
+    gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.08);
+
+    // Part 2: Bright "ching" ring
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(3500, ctx.currentTime + 0.06);
+    osc2.frequency.exponentialRampToValueAtTime(2800, ctx.currentTime + 0.5);
+    gain2.gain.setValueAtTime(0, ctx.currentTime);
+    gain2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(ctx.currentTime + 0.06);
+    osc2.stop(ctx.currentTime + 0.6);
+
+    // Part 3: Harmonic shimmer
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(5200, ctx.currentTime + 0.07);
+    osc3.frequency.exponentialRampToValueAtTime(4000, ctx.currentTime + 0.4);
+    gain3.gain.setValueAtTime(0, ctx.currentTime);
+    gain3.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.09);
+    gain3.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc3.connect(gain3);
+    gain3.connect(ctx.destination);
+    osc3.start(ctx.currentTime + 0.07);
+    osc3.stop(ctx.currentTime + 0.5);
+
+    // Cleanup
+    setTimeout(() => ctx.close(), 1000);
+  } catch(e) { console.log('Audio not supported'); }
+}
+
+// ─── STATE ───
+let state = {
+  profiles: [
+    { id: 'a', name: 'Profilo A', handle: '@eleaffar26', price: 0.99, sales: 0, videos: [
+      { hook: 'Video 1', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619074692749462806' },
+      { hook: 'Video 2', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619074455255682326' },
+      { hook: 'Video 3', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619073911459761430' },
+    ]},
+    { id: 'b', name: 'Profilo B', handle: '@elii0071', price: 2.99, sales: 0, videos: [
+      { hook: 'Video 1', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619075786426928406' },
+      { hook: 'Video 2', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619075496323730710' },
+      { hook: 'Video 3', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619075149119098134' },
+    ]},
+    { id: 'c', name: 'Profilo C', handle: '@lollellouser', price: 9.99, sales: 0, videos: [
+      { hook: 'Video 1', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619077013277592854' },
+      { hook: 'Video 2', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619076543838489879' },
+      { hook: 'Video 3', views: 0, likes: 0, comments: 0, shares: 0, tiktokId: '7619076327710297346' },
+    ]},
+  ],
+  log: [],
+  aiHistory: [],
+  notes: ''
+};
+
+// Load from localStorage
+function loadState() {
+  const saved = localStorage.getItem('mission_control_state');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      // If saved state has videos loaded already, use it fully
+      const hasVideos = parsed.profiles && parsed.profiles.some(p => p.videos && p.videos.length > 0);
+      if (hasVideos) {
+        state = { ...state, ...parsed };
+      } else {
+        // Keep default profiles with preloaded videos, merge other data
+        state.log = parsed.log || [];
+        state.aiHistory = parsed.aiHistory || [];
+        state.notes = parsed.notes || '';
+      }
+    } catch(e) {}
+  }
+}
+
+function saveState() {
+  localStorage.setItem('mission_control_state', JSON.stringify(state));
+}
+
+function getApiKey() {
+  return localStorage.getItem('anthropic_api_key') || '';
+}
+
+function getRapidApiKey() {
+  return localStorage.getItem('rapidapi_key') || '';
+}
+
+function saveRapidApiKey() {
+  const key = document.getElementById('rapidApiKeyInput').value;
+  if (key && !key.startsWith('••')) {
+    localStorage.setItem('rapidapi_key', key);
+    addLog('RapidAPI key salvata');
+    render();
+  }
+}
+
+// ─── TAB SWITCHING ───
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ─── RENDER ───
+function render() {
+  const totalRevenue = state.profiles.reduce((sum, p) => sum + (p.sales * p.price), 0);
+  const pct = Math.min((totalRevenue / 1000) * 100, 100);
+
+  document.getElementById('totalRevenue').textContent = '€' + totalRevenue.toFixed(2);
+  document.getElementById('revenuePercent').textContent = pct.toFixed(1) + '%';
+  document.getElementById('revenueFill').style.width = pct + '%';
+
+  // Find winner
+  const maxRevenue = Math.max(...state.profiles.map(p => p.sales * p.price));
+
+  // Profile cards
+  const cardsHtml = state.profiles.map(p => {
+    const rev = p.sales * p.price;
+    const isWinner = rev > 0 && rev === maxRevenue;
+
+    const videosHtml = p.videos.length > 0 ? p.videos.map((v, i) => `
+      <div>
+        <div class="video-row">
+          <div class="hook">${v.hook || 'Video ' + (i+1)}</div>
+          <input type="number" value="${v.views||0}" onchange="updateVideo('${p.id}',${i},'views',this.value)" placeholder="Views">
+          <input type="number" value="${v.likes||0}" onchange="updateVideo('${p.id}',${i},'likes',this.value)" placeholder="Like">
+          <input type="number" value="${v.comments||0}" onchange="updateVideo('${p.id}',${i},'comments',this.value)" placeholder="Comm.">
+          <input type="number" value="${v.shares||0}" onchange="updateVideo('${p.id}',${i},'shares',this.value)" placeholder="Share">
+          <button class="btn-refresh" onclick="refreshSingleVideo('${p.id}',${i})" title="Aggiorna stats">🔄</button>
+        </div>
+        <div class="video-id-row">
+          <input type="text" value="${v.tiktokId||''}" onchange="updateVideo('${p.id}',${i},'tiktokId',this.value)" placeholder="TikTok Video ID (es: 7234567890123456789)">
+        </div>
+      </div>
+    `).join('') : '<p style="color:var(--muted);font-size:12px">Nessun video. Aggiungine uno.</p>';
+
+    return `
+      <div class="card ${isWinner ? 'winner' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <h3 style="margin-bottom:2px">${p.name} ${isWinner ? '<span class="winner-badge">WINNER</span>' : ''}</h3>
+            <span style="color:var(--muted);font-size:12px">${p.handle} · €${p.price}</span>
+          </div>
+          <div class="stat" style="text-align:right">
+            <div class="value" style="font-size:20px">€${rev.toFixed(2)}</div>
+            <div class="label">${p.sales} vendite</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px">
+          <div class="video-row" style="font-size:11px;color:var(--muted);border-bottom:1px solid var(--border)">
+            <div>Hook</div><div>Views</div><div>Like</div><div>Comm.</div><div>Share</div><div></div>
+          </div>
+          ${videosHtml}
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="addVideo('${p.id}')">+ Video</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('profileCards').innerHTML = cardsHtml;
+
+  // Recommendations
+  const recos = [];
+  state.profiles.forEach(p => {
+    p.videos.forEach((v, i) => {
+      const views = parseInt(v.views) || 0;
+      const likes = parseInt(v.likes) || 0;
+      const likeRate = views > 0 ? (likes / views) * 100 : 0;
+
+      if (views > 0 && likeRate < 3) {
+        recos.push({ text: `${p.name} Video ${i+1}: Like rate ${likeRate.toFixed(1)}% — Cambia hook`, good: false });
+      }
+      if (views > 10000) {
+        recos.push({ text: `${p.name} Video ${i+1}: ${views.toLocaleString()} views! — Duplica su altri profili`, good: true });
+      }
+    });
+
+    const rev = p.sales * p.price;
+    if (p.sales > 0 && p.videos.length > 0) {
+      const totalViews = p.videos.reduce((s, v) => s + (parseInt(v.views)||0), 0);
+      if (totalViews > 0) {
+        const cr = (p.sales / totalViews) * 100;
+        if (cr < 1) {
+          recos.push({ text: `${p.name}: CR ${cr.toFixed(2)}% — Controlla il link in bio`, good: false });
+        }
+      }
+    }
+  });
+
+  if (totalRevenue >= 500) {
+    recos.push({ text: `€${totalRevenue.toFixed(0)} su €1.000 — Sei in carreggiata! 🚀`, good: true });
+  }
+
+  document.getElementById('recommendations').innerHTML = recos.length > 0
+    ? recos.map(r => `<div class="reco ${r.good ? 'good' : ''}">${r.text}</div>`).join('')
+    : '<p style="color:var(--muted);font-size:13px">Inserisci dati video per ricevere raccomandazioni.</p>';
+
+  // Log
+  document.getElementById('logEntries').innerHTML = state.log.length > 0
+    ? state.log.slice(-20).reverse().map(l => `<div class="log-entry"><span class="time">${l.time}</span>${l.text}</div>`).join('')
+    : '<p style="color:var(--muted);font-size:13px">Nessun aggiornamento ancora.</p>';
+
+  // Setup cards
+  document.getElementById('setupCards').innerHTML = state.profiles.map(p => `
+    <div class="card">
+      <h3>${p.name}</h3>
+      <label>Nome</label>
+      <input value="${p.name}" onchange="updateProfile('${p.id}','name',this.value)">
+      <label>Handle TikTok</label>
+      <input value="${p.handle}" onchange="updateProfile('${p.id}','handle',this.value)">
+      <label>Prezzo (€)</label>
+      <input type="number" step="0.01" value="${p.price}" onchange="updateProfile('${p.id}','price',parseFloat(this.value))">
+    </div>
+  `).join('');
+
+  // Sales inputs
+  document.getElementById('salesA').value = state.profiles[0].sales;
+  document.getElementById('salesB').value = state.profiles[1].sales;
+  document.getElementById('salesC').value = state.profiles[2].sales;
+
+  // Notes
+  document.getElementById('notes').value = state.notes || '';
+
+  // API key check
+  document.getElementById('apiNotice').classList.toggle('show', !getApiKey());
+  if (getApiKey()) {
+    document.getElementById('apiKeyInput').value = '••••••••••••••••';
+  }
+  if (getRapidApiKey()) {
+    document.getElementById('rapidApiKeyInput').value = '••••••••••••••••';
+  }
+
+  // Site URL
+  document.getElementById('siteUrlInput').value = getSiteUrl();
+
+  // RapidAPI usage counter
+  const today = new Date().toISOString().slice(0, 10);
+  if (rapidApiCallDate !== today) { rapidApiCallCount = 0; }
+  const rapidUsage = document.getElementById('rapidUsage');
+  if (rapidUsage) rapidUsage.textContent = `${rapidApiCallCount}/100 chiamate usate oggi`;
+
+  // Last update
+  if (state.lastUpdate) {
+    const d = new Date(state.lastUpdate);
+    document.getElementById('lastUpdate').textContent = 'Ultimo aggiornamento: ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // AI history
+  if (state.aiHistory.length > 0) {
+    document.getElementById('aiHistory').innerHTML = state.aiHistory.slice(-10).reverse().map(h => `
+      <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${h.time} — ${h.type}</div>
+        <div style="font-size:13px;white-space:pre-wrap">${h.response.substring(0, 300)}${h.response.length > 300 ? '...' : ''}</div>
+      </div>
+    `).join('');
+  }
+
+  saveState();
+}
+
+// ─── ACTIONS ───
+function addVideo(profileId) {
+  const hook = prompt('Hook del video:');
+  if (!hook) return;
+  const tiktokId = prompt('TikTok Video ID (numero lungo dall\'URL, opzionale):') || '';
+  const profile = state.profiles.find(p => p.id === profileId);
+  profile.videos.push({ hook, views: 0, likes: 0, comments: 0, shares: 0, tiktokId });
+  addLog(`Aggiunto video "${hook}" a ${profile.name}`);
+  render();
+}
+
+function updateVideo(profileId, videoIndex, field, value) {
+  const profile = state.profiles.find(p => p.id === profileId);
+  if (field === 'tiktokId') {
+    profile.videos[videoIndex][field] = value.trim();
+  } else {
+    profile.videos[videoIndex][field] = parseInt(value) || 0;
+  }
+  addLog(`Aggiornato ${field} video ${videoIndex+1} di ${profile.name}: ${value}`);
+  render();
+}
+
+function updateProfile(profileId, field, value) {
+  const profile = state.profiles.find(p => p.id === profileId);
+  profile[field] = value;
+  addLog(`Aggiornato ${field} di ${profile.name}: ${value}`);
+  render();
+}
+
+function updateSales() {
+  const oldTotal = state.profiles.reduce((s, p) => s + p.sales, 0);
+  state.profiles[0].sales = parseInt(document.getElementById('salesA').value) || 0;
+  state.profiles[1].sales = parseInt(document.getElementById('salesB').value) || 0;
+  state.profiles[2].sales = parseInt(document.getElementById('salesC').value) || 0;
+  const newTotal = state.profiles.reduce((s, p) => s + p.sales, 0);
+
+  // Play cash sound if sales increased
+  if (newTotal > oldTotal) {
+    playCashSound();
+  }
+
+  addLog(`Vendite aggiornate: A=${state.profiles[0].sales}, B=${state.profiles[1].sales}, C=${state.profiles[2].sales}`);
+  render();
+}
+
+function saveNotes() {
+  state.notes = document.getElementById('notes').value;
+  addLog('Note salvate');
+  saveState();
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value;
+  if (key && !key.startsWith('••')) {
+    localStorage.setItem('anthropic_api_key', key);
+    addLog('API key salvata');
+    render();
+  }
+}
+
+function addLog(text) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  state.log.push({ time, text });
+  saveState();
+}
+
+// ─── TIKTOK LIVE STATS ───
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function fetchVideoStats(videoId) {
+  const apiKey = getRapidApiKey();
+  if (!apiKey) {
+    alert('Inserisci la RapidAPI key nel tab Setup');
+    return null;
+  }
+  if (!checkRapidApiLimit()) return null;
+  try {
+    trackRapidApiCall();
+    const res = await fetch(
+      `https://tokapi-mobile-version.p.rapidapi.com/v1/post/${videoId}`,
+      { headers: {
+          'X-RapidAPI-Key': apiKey,
+          'X-RapidAPI-Host': 'tokapi-mobile-version.p.rapidapi.com'
+      }}
+    );
+    if (!res.ok) throw new Error('API error: ' + res.status);
+    const data = await res.json();
+    const s = data?.aweme_detail?.statistics;
+    if (!s) throw new Error('No stats in response');
+    return {
+      views:    s?.play_count    || 0,
+      likes:    s?.digg_count    || 0,
+      comments: s?.comment_count || 0,
+      shares:   s?.share_count   || 0,
+    };
+  } catch(err) {
+    console.error('TikTok fetch error:', err);
+    return null;
+  }
+}
+
+async function refreshSingleVideo(profileId, videoIndex) {
+  const profile = state.profiles.find(p => p.id === profileId);
+  const video = profile.videos[videoIndex];
+  if (!video.tiktokId) {
+    alert('Inserisci il TikTok Video ID prima di aggiornare');
+    return;
+  }
+
+  const btn = event.target;
+  btn.classList.add('spinning');
+
+  const stats = await fetchVideoStats(video.tiktokId);
+  btn.classList.remove('spinning');
+
+  if (stats) {
+    Object.assign(video, stats);
+    state.lastUpdate = new Date().toISOString();
+    addLog(`Stats aggiornate per "${video.hook}": ${stats.views} views, ${stats.likes} like`);
+    saveState();
+    render();
+  } else {
+    addLog(`Errore aggiornamento stats per "${video.hook}"`);
+  }
+}
+
+async function refreshAllVideos() {
+  const btn = document.getElementById('refreshAllBtn');
+  btn.textContent = '⏳ Aggiornando...';
+  btn.disabled = true;
+
+  let updated = 0;
+  for (const profile of state.profiles) {
+    for (const video of profile.videos) {
+      if (!video.tiktokId) continue;
+      const stats = await fetchVideoStats(video.tiktokId);
+      if (stats) {
+        Object.assign(video, stats);
+        updated++;
+      }
+      await sleep(1000); // Rate limiting
+    }
+  }
+
+  state.lastUpdate = new Date().toISOString();
+  btn.textContent = '🔄 Aggiorna tutto';
+  btn.disabled = false;
+
+  addLog(`Stats aggiornate via RapidAPI: ${updated} video`);
+  saveState();
+  render();
+}
+
+// ─── AI CALLS ───
+async function callClaude(prompt) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    alert('Inserisci la API key Anthropic nel tab Setup');
+    return null;
+  }
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(err);
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  } catch (err) {
+    console.error('AI Error:', err);
+    return 'Errore: ' + err.message;
+  }
+}
+
+function getDataContext() {
+  return state.profiles.map(p => {
+    const rev = p.sales * p.price;
+    const videosInfo = p.videos.map((v, i) => {
+      const views = parseInt(v.views)||0;
+      const likes = parseInt(v.likes)||0;
+      const likeRate = views > 0 ? ((likes/views)*100).toFixed(1) : '0';
+      return `  Video ${i+1}: "${v.hook}" — ${views} views, ${likes} like (${likeRate}%), ${v.comments||0} commenti, ${v.shares||0} share`;
+    }).join('\n');
+    return `${p.name} (${p.handle}, €${p.price}):\n  Vendite: ${p.sales} (€${rev.toFixed(2)})\n${videosInfo || '  Nessun video'}`;
+  }).join('\n\n');
+}
+
+const ANALYSIS_PROMPTS = {
+  all: 'Analizza tutti i profili. Qual è la situazione generale? Chi performa meglio e perché?',
+  a: 'Analizza solo il Profilo A. Come sta andando? Cosa può migliorare?',
+  b: 'Analizza solo il Profilo B. Come sta andando? Cosa può migliorare?',
+  c: 'Analizza solo il Profilo C. Come sta andando? Cosa può migliorare?',
+  ab: 'Confronta i profili come A/B test. Quale prezzo funziona meglio? Quale strategia genera più revenue?',
+  next: 'Qual è la prossima mossa migliore per raggiungere €1.000? Sii specifico e pratico.',
+  hooks: 'Genera 5 nuovi hook per video TikTok sul tema "scoprire tradimenti". Devono essere emotivi, curiosi e cliccabili.',
+  archive: 'Quali video non stanno performando e dovrei archiviare? Quali tenere e perché?'
+};
+
+async function runAIAnalysis() {
+  const type = document.getElementById('aiAnalysisType').value;
+  await doAnalysis(type);
+}
+
+function quickAnalysis(type) {
+  document.getElementById('aiAnalysisType').value = type;
+  doAnalysis(type);
+}
+
+async function doAnalysis(type) {
+  const btn = document.getElementById('aiBtn');
+  btn.textContent = 'Analizzando...';
+  btn.disabled = true;
+
+  const context = getDataContext();
+  const totalRev = state.profiles.reduce((s, p) => s + (p.sales * p.price), 0);
+
+  const prompt = `Sei un growth hacker esperto di TikTok e vendite digitali. Il target è €1.000 di revenue stanotte vendendo un PDF su 3 profili TikTok a prezzi diversi.
+
+Dati attuali:
+${context}
+
+Revenue totale: €${totalRev.toFixed(2)} / €1.000
+
+${ANALYSIS_PROMPTS[type]}
+
+Rispondi in italiano. Sii conciso, pratico e diretto. Niente fuffa.`;
+
+  const response = await callClaude(prompt);
+
+  btn.textContent = 'Analizza con Claude';
+  btn.disabled = false;
+
+  if (response) {
+    document.getElementById('aiResult').innerHTML = `<div class="ai-response">${response}</div>`;
+
+    state.aiHistory.push({
+      time: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+      type: ANALYSIS_PROMPTS[type].substring(0, 50),
+      response
+    });
+    addLog(`Analisi AI completata: ${type}`);
+    render();
+  }
+}
+
+async function analyzeVideo() {
+  const btn = document.getElementById('videoBtn');
+  btn.textContent = 'Analizzando...';
+  btn.disabled = true;
+
+  const hook = document.getElementById('videoHook').value;
+  const caption = document.getElementById('videoCaption').value;
+  const views = document.getElementById('videoViews').value;
+  const likes = document.getElementById('videoLikes').value;
+  const comments = document.getElementById('videoComments').value;
+  const shares = document.getElementById('videoShares').value;
+
+  const prompt = `Sei un esperto di TikTok viral content. Analizza questo video:
+
+Hook: "${hook}"
+Caption: "${caption}"
+Views: ${views}, Like: ${likes}, Commenti: ${comments}, Share: ${shares}
+
+Il video promuove un PDF su come scoprire tradimenti (€0,99-€4,99).
+
+Rispondi in italiano con:
+1. DIAGNOSI RAPIDA (1 riga)
+2. PROBLEMA PRINCIPALE (1-2 righe)
+3. 3 VERSIONI HOOK MIGLIORATE (numerate)
+4. DECISIONE: TIENI / ARCHIVIA / RIFAI (con motivo)
+
+Sii diretto e pratico.`;
+
+  const response = await callClaude(prompt);
+
+  btn.textContent = 'Analizza con Claude';
+  btn.disabled = false;
+
+  if (response) {
+    document.getElementById('videoResult').innerHTML = `<div class="ai-response">${response}</div>`;
+    addLog('Video analizzato: ' + hook);
+  }
+}
+
+// ─── SITE URL ───
+function getSiteUrl() {
+  return localStorage.getItem('site_url') || 'https://tihatradito.site';
+}
+
+function saveSiteUrl() {
+  const url = document.getElementById('siteUrlInput').value.trim().replace(/\/$/, '');
+  if (url) {
+    localStorage.setItem('site_url', url);
+    addLog('URL sito salvato: ' + url);
+  }
+}
+
+// ─── KEY SHARING (MacBook → iMac) ───
+function generateKeyShareLink() {
+  const anthropicKey = getApiKey();
+  const rapidKey = getRapidApiKey();
+  const siteUrl = getSiteUrl();
+  if (!anthropicKey && !rapidKey) {
+    alert('Nessuna key da condividere. Inseriscile prima.');
+    return;
+  }
+  const payload = btoa(JSON.stringify({ a: anthropicKey, r: rapidKey, s: siteUrl }));
+  const dashboardUrl = window.location.href.split('#')[0].split('?')[0];
+  const link = dashboardUrl + '?keys=' + encodeURIComponent(payload);
+  document.getElementById('shareLink').innerHTML =
+    `<span style="color:var(--green)">✅ Link generato!</span><br><a href="${link}" style="color:var(--red)" target="_blank">${link.substring(0, 80)}...</a><br><button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="navigator.clipboard.writeText('${link}')">📋 Copia link</button>`;
+}
+
+function importKeysFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const keysParam = params.get('keys');
+  if (!keysParam) return;
+  try {
+    const payload = JSON.parse(atob(decodeURIComponent(keysParam)));
+    if (payload.a) localStorage.setItem('anthropic_api_key', payload.a);
+    if (payload.r) localStorage.setItem('rapidapi_key', payload.r);
+    if (payload.s) localStorage.setItem('site_url', payload.s);
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+    addLog('🔑 Key importate da link di condivisione!');
+  } catch(e) { console.error('Key import failed', e); }
+}
+
+// ─── ANALYTICS ───
+let analyticsData = null;
+let autoPollEnabled = true;
+let autoPollInterval = null;
+
+async function fetchAnalytics() {
+  try {
+    const siteUrl = getSiteUrl();
+    const res = await fetch(siteUrl + '/api/events', { mode: 'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    analyticsData = await res.json();
+    renderAnalytics();
+    document.getElementById('analyticsLastUpdate').textContent =
+      'Aggiornato: ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch(err) {
+    console.error('Analytics fetch error:', err);
+    document.getElementById('analyticsStatus').textContent = '⚠️ Errore';
+    document.getElementById('analyticsStatus').className = 'badge badge-red';
+  }
+}
+
+function renderAnalytics() {
+  if (!analyticsData) return;
+  const d = analyticsData;
+
+  // Counters
+  document.getElementById('liveVisitors').textContent = d.unique_visitors || 0;
+  document.getElementById('livePageViews').textContent = d.counts?.page_view || 0;
+  document.getElementById('liveCtaClicks').textContent = d.counts?.cta_click || 0;
+
+  const pv = d.counts?.page_view || 0;
+  const cta = d.counts?.cta_click || 0;
+  const convRate = pv > 0 ? ((cta / pv) * 100).toFixed(1) : '0';
+  document.getElementById('liveConvRate').textContent = convRate + '%';
+
+  // Funnel
+  const funnel = d.funnel || {};
+  const funnelSteps = [
+    { label: 'Page View', value: funnel.page_view || 0, color: 'var(--text)' },
+    { label: 'Quiz Start', value: funnel.quiz_start || 0, color: '#3b82f6' },
+    { label: 'Quiz Complete', value: funnel.quiz_complete || 0, color: '#8b5cf6' },
+    { label: 'CTA Click', value: funnel.cta_click || 0, color: 'var(--red)' },
+    { label: 'Upsell Sì', value: funnel.upsell_yes || 0, color: 'var(--green)' },
+    { label: 'Upsell No', value: funnel.upsell_no || 0, color: 'var(--muted)' },
+  ];
+  const maxFunnel = Math.max(...funnelSteps.map(s => s.value), 1);
+  document.getElementById('funnelChart').innerHTML = funnelSteps.map(s => {
+    const pct = Math.max((s.value / maxFunnel) * 100, 2);
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div style="width:100px;font-size:12px;color:var(--muted);text-align:right">${s.label}</div>
+      <div style="flex:1;background:var(--bg3);border-radius:6px;height:24px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${s.color};border-radius:6px;transition:width 0.3s"></div>
+      </div>
+      <div style="width:40px;font-size:13px;font-weight:600">${s.value}</div>
+    </div>`;
+  }).join('');
+
+  // Hourly chart
+  const hourly = d.hourly || [];
+  const maxHourly = Math.max(...hourly.map(h => h.visitors), 1);
+  document.getElementById('hourlyChart').innerHTML = hourly.map(h => {
+    const height = Math.max((h.visitors / maxHourly) * 100, 2);
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:10px;color:var(--muted)">${h.visitors}</div>
+      <div style="width:100%;height:${height}px;background:var(--red);border-radius:3px 3px 0 0;min-height:2px"></div>
+      <div style="font-size:9px;color:var(--muted)">${h.hour}</div>
+    </div>`;
+  }).join('');
+
+  // Recent events
+  const recent = d.recent || [];
+  if (recent.length > 0) {
+    document.getElementById('recentEvents').innerHTML = recent.slice(0, 30).map(e => {
+      const time = new Date(e.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const typeColors = {
+        page_view: '#22c55e', quiz_answer: '#3b82f6', quiz_complete: '#8b5cf6',
+        cta_click: '#e8001d', upsell_yes: '#22c55e', upsell_no: '#888',
+        page_leave: '#666',
+      };
+      const color = typeColors[e.type] || 'var(--muted)';
+      const dataStr = e.data && Object.keys(e.data).length > 0 ? ' · ' + Object.entries(e.data).map(([k,v]) => `${k}=${v}`).join(', ') : '';
+      return `<div class="log-entry"><span class="time">${time}</span><span style="color:${color};font-weight:600">${e.type}</span>${dataStr}</div>`;
+    }).join('');
+  }
+
+  // Scroll & time averages
+  const leaveEvents = recent.filter(e => e.type === 'page_leave');
+  if (leaveEvents.length > 0) {
+    const avgScroll = Math.round(leaveEvents.reduce((s, e) => s + (e.data?.scroll_depth || 0), 0) / leaveEvents.length);
+    const avgSec = Math.round(leaveEvents.reduce((s, e) => s + (e.data?.time_on_page || 0), 0) / leaveEvents.length);
+    document.getElementById('avgScroll').textContent = avgScroll + '%';
+    document.getElementById('avgTime').textContent = avgSec > 60 ? Math.floor(avgSec/60) + 'm ' + (avgSec%60) + 's' : avgSec + 's';
+  }
+
+  document.getElementById('analyticsStatus').textContent = '● LIVE';
+  document.getElementById('analyticsStatus').className = 'badge badge-green';
+}
+
+function toggleAutoPoll() {
+  autoPollEnabled = !autoPollEnabled;
+  const btn = document.getElementById('autoPollBtn');
+  if (autoPollEnabled) {
+    btn.textContent = '⏸️ Pausa auto';
+    startAutoPoll();
+  } else {
+    btn.textContent = '▶️ Riprendi auto';
+    if (autoPollInterval) clearInterval(autoPollInterval);
+  }
+}
+
+function startAutoPoll() {
+  if (autoPollInterval) clearInterval(autoPollInterval);
+  autoPollInterval = setInterval(() => {
+    if (autoPollEnabled) fetchAnalytics();
+  }, 15000); // 15 secondi
+}
+
+// ─── RAPIDAPI RATE LIMIT PROTECTION ───
+let rapidApiCallCount = parseInt(localStorage.getItem('rapid_call_count') || '0');
+let rapidApiCallDate = localStorage.getItem('rapid_call_date') || '';
+
+function checkRapidApiLimit() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (rapidApiCallDate !== today) {
+    rapidApiCallCount = 0;
+    rapidApiCallDate = today;
+  }
+  if (rapidApiCallCount >= 90) { // 90 instead of 100 for safety margin
+    alert(`⚠️ Hai usato ${rapidApiCallCount}/100 chiamate RapidAPI oggi. Limite quasi raggiunto! Aspetta domani.`);
+    return false;
+  }
+  return true;
+}
+
+function trackRapidApiCall() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (rapidApiCallDate !== today) {
+    rapidApiCallCount = 0;
+    rapidApiCallDate = today;
+  }
+  rapidApiCallCount++;
+  localStorage.setItem('rapid_call_count', rapidApiCallCount.toString());
+  localStorage.setItem('rapid_call_date', today);
+}
+
+// ─── COUNTDOWN TIMER TO 08:00 ───
+function updateCountdown() {
+  const now = new Date();
+  let target = new Date(now);
+  target.setHours(8, 0, 0, 0);
+  // If it's already past 08:00, target is tomorrow
+  if (now >= target) target.setDate(target.getDate() + 1);
+
+  const diff = target - now;
+  if (diff <= 0) {
+    document.getElementById('countdownTimer').textContent = '⏰ TEMPO SCADUTO';
+    document.getElementById('countdownTimer').style.color = '#ff4444';
+    return;
+  }
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  document.getElementById('countdownTimer').textContent =
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+  // Color changes based on urgency
+  if (h < 1) {
+    document.getElementById('countdownTimer').style.color = '#ff4444';
+  } else if (h < 3) {
+    document.getElementById('countdownTimer').style.color = '#ff8c00';
+  } else {
+    document.getElementById('countdownTimer').style.color = 'var(--red)';
+  }
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
+
+// ─── STARTUP SIREN (10 seconds) ───
+function playSiren() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const duration = 10;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+
+    // Siren: oscillates between 400Hz and 900Hz
+    for (let i = 0; i < duration * 2; i++) {
+      const t = ctx.currentTime + i * 0.5;
+      osc.frequency.setValueAtTime(400, t);
+      osc.frequency.linearRampToValueAtTime(900, t + 0.25);
+      osc.frequency.linearRampToValueAtTime(400, t + 0.5);
+    }
+
+    // Fade out at the end
+    gain.gain.setValueAtTime(0.2, ctx.currentTime + duration - 1);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+
+    // Visual feedback
+    const el = document.getElementById('countdownTimer');
+    el.style.animation = 'urgentFlash 0.5s ease infinite';
+    setTimeout(() => {
+      el.style.animation = '';
+      ctx.close();
+      // Play the cash sound right after siren ends
+      playCashSound();
+    }, duration * 1000);
+  } catch(e) { console.log('Siren not supported:', e); }
+}
+
+// Check for midnight launch
+function checkMidnightLaunch() {
+  const launched = localStorage.getItem('midnight_launched');
+  const now = new Date();
+  if (!launched && now.getHours() === 0 && now.getMinutes() === 0) {
+    localStorage.setItem('midnight_launched', 'true');
+    playSiren();
+    addLog('🚀🚨 MISSIONE INIZIATA — SIRENA ATTIVATA!');
+    render();
+  }
+}
+setInterval(checkMidnightLaunch, 1000);
+
+// Manual siren trigger for testing
+function triggerSiren() {
+  playSiren();
+  addLog('🚨 Sirena test attivata!');
+}
+
+// ─── INIT ───
+importKeysFromUrl();
+loadState();
+render();
+fetchAnalytics();
+startAutoPoll();
+</script>
+</body>
+</html>
