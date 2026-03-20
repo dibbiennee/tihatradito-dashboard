@@ -115,6 +115,70 @@ function useCountdown(minutes: number) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+/* ─── SOCIAL PROOF POPUP ─── */
+const PROOF_NAMES = [
+  "Giulia", "Sara", "Martina", "Chiara", "Valentina", "Francesca",
+  "Alessia", "Elena", "Federica", "Laura", "Jessica", "Elisa",
+  "Roberta", "Silvia", "Giorgia", "Marco", "Luca", "Andrea",
+  "Alessandro", "Davide", "Matteo", "Simone", "Lorenzo",
+];
+const PROOF_CITIES = [
+  "Milano", "Roma", "Napoli", "Torino", "Bologna", "Firenze",
+  "Palermo", "Genova", "Bari", "Catania", "Verona", "Padova",
+  "Brescia", "Modena", "Cagliari", "Perugia", "Reggio Calabria",
+];
+const PROOF_TIERS = ["Base", "Completo", "Completo", "Completo", "Ultimate"];
+const PROOF_TIMES = ["2 min fa", "5 min fa", "8 min fa", "12 min fa", "Ora", "3 min fa", "1 min fa"];
+
+function SocialProofToast() {
+  const [visible, setVisible] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [data, setData] = useState({ name: "", city: "", tier: "", time: "" });
+
+  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+
+  useEffect(() => {
+    const show = () => {
+      setData({
+        name: pick(PROOF_NAMES),
+        city: pick(PROOF_CITIES),
+        tier: pick(PROOF_TIERS),
+        time: pick(PROOF_TIMES),
+      });
+      setExiting(false);
+      setVisible(true);
+      setTimeout(() => {
+        setExiting(true);
+        setTimeout(() => setVisible(false), 300);
+      }, 4000);
+    };
+
+    const initial = setTimeout(show, 8000 + Math.random() * 7000);
+    const interval = setInterval(show, 18000 + Math.random() * 12000);
+    return () => { clearTimeout(initial); clearInterval(interval); };
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className={`fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 ${exiting ? "toast-out" : "toast-in"}`}>
+      <div className="bg-bg2 border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg">
+        <div className="w-9 h-9 rounded-full bg-red/10 flex items-center justify-center text-lg shrink-0">
+          🔒
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-txt truncate">
+            <span className="font-semibold">{data.name}</span> da {data.city}
+          </p>
+          <p className="text-xs text-muted">
+            Ha scelto {data.tier} · {data.time}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════ */
@@ -222,6 +286,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-bg">
+      <SocialProofToast />
       {/* ─── HERO ─── */}
       <section className="px-5 pt-12 pb-8 max-w-lg mx-auto fade-up">
         <div className="inline-block bg-red/10 text-red text-xs font-semibold px-3 py-1.5 rounded-full mb-6 tracking-wide">
