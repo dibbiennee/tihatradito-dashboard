@@ -638,9 +638,15 @@ export default function Home() {
         <p className="text-xs text-muted/50">
           © {new Date().getFullYear()} — Tutti i diritti riservati
         </p>
-        <a href="/termini" className="text-xs text-muted/40 hover:text-muted/70 transition-colors mt-1 inline-block">
-          Termini e Condizioni
-        </a>
+        <div className="flex justify-center gap-3 mt-1">
+          <a href="/termini" className="text-xs text-muted/40 hover:text-muted/70 transition-colors">
+            Termini e Condizioni
+          </a>
+          <span className="text-xs text-muted/20">·</span>
+          <a href="/privacy" className="text-xs text-muted/40 hover:text-muted/70 transition-colors">
+            Privacy Policy
+          </a>
+        </div>
       </footer>
     </main>
   );

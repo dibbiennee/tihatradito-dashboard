@@ -104,7 +104,8 @@ function CountdownBadge({ m, s, expired }: { m: string; s: string; expired: bool
    GRAZIE PAGE
    ═══════════════════════════════════════ */
 export default function GraziePage() {
-  const pdfUrl = process.env.NEXT_PUBLIC_PDF_URL || "/scopri-la-verita.pdf";
+  const pdfFile = process.env.NEXT_PUBLIC_PDF_URL?.replace("/", "") || "scopri-la-verita.pdf";
+  const pdfUrl = `/api/download?f=${encodeURIComponent(pdfFile)}`;
   const { m, s, expired } = useCountdown(COUNTDOWN_SECONDS);
   const [dismissed, setDismissed] = useState(false);
   const [glowing, setGlowing] = useState(false);
