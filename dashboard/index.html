@@ -240,6 +240,31 @@
   .stat .value { font-size: 32px; font-weight: 700; }
   .stat .label { font-size: 12px; color: var(--muted); }
 
+  /* ─── STRIPE REVENUE SECTION ─── */
+  .stripe-section {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 20px; margin-bottom: 20px;
+  }
+  .stripe-section .stripe-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+  }
+  .stripe-section h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
+  .stripe-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 700px) { .stripe-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stripe-stat { text-align: center; }
+  .stripe-stat .ss-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .stripe-stat .ss-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+  .stripe-payments { margin-top: 14px; max-height: 200px; overflow-y: auto; }
+  .stripe-payment-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid rgba(34,34,46,0.3); font-size: 12px;
+  }
+  .stripe-payment-row:last-child { border-bottom: none; }
+  .sp-amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .sp-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sp-today { color: var(--green); }
+  .stripe-no-key { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; }
+
   /* ─── API NOTICE ─── */
   .api-notice { background: rgba(232,0,29,0.08); border: 1px solid rgba(232,0,29,0.3); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 12px; color: var(--red); margin-bottom: 16px; display: none; }
   .api-notice.show { display: block; }
@@ -308,6 +333,41 @@
     </div>
     <div class="revenue-bar">
       <div class="revenue-fill" id="revenueFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- STRIPE REVENUE (REAL DATA) -->
+  <div class="stripe-section" id="stripeSection">
+    <div class="stripe-header">
+      <h3>💳 Stripe Revenue (DATI REALI)</h3>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="last-update" id="stripeLastUpdate">Mai aggiornato</span>
+        <button class="btn btn-ghost btn-sm" onclick="fetchStripePayments()" id="stripeRefreshBtn">🔄</button>
+      </div>
+    </div>
+    <div id="stripeContent">
+      <div class="stripe-no-key" id="stripeNoKey">⚙️ Inserisci la Stripe Secret Key nel tab Setup per vedere i pagamenti reali.</div>
+      <div id="stripeData" style="display:none">
+        <div class="stripe-grid">
+          <div class="stripe-stat">
+            <div class="ss-value" style="color:var(--green)" id="stripeTotalRevenue">€0</div>
+            <div class="ss-label">Revenue totale</div>
+          </div>
+          <div class="stripe-stat">
+            <div class="ss-value" id="stripeTodayRevenue" style="color:var(--amber)">€0</div>
+            <div class="ss-label">Revenue oggi</div>
+          </div>
+          <div class="stripe-stat">
+            <div class="ss-value" id="stripeTotalOrders">0</div>
+            <div class="ss-label">Ordini totali</div>
+          </div>
+          <div class="stripe-stat">
+            <div class="ss-value" id="stripeTodayOrders" style="color:var(--amber)">0</div>
+            <div class="ss-label">Ordini oggi</div>
+          </div>
+        </div>
+        <div class="stripe-payments" id="stripePaymentsList"></div>
+      </div>
     </div>
   </div>
 
@@ -438,7 +498,7 @@
 
   <!-- ═══════ TAB: SETUP ═══════ -->
   <div class="tab-content" id="tab-setup">
-    <div class="card-row-2">
+    <div class="card-row">
       <div class="card">
         <h3>🔑 API Key Anthropic</h3>
         <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Solo nel tuo browser (localStorage).</p>
@@ -451,6 +511,12 @@
         <input type="password" id="rapidApiKeyInput" placeholder="la_tua_rapidapi_key...">
         <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveRapidApiKey()">Salva</button>
         <div id="rapidUsage" style="margin-top:6px;font-size:11px;color:var(--muted)">0/100 oggi</div>
+      </div>
+      <div class="card">
+        <h3>🔑 Stripe Secret Key</h3>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:8px">sk_live_... — Solo locale, MAI inviata a terzi.</p>
+        <input type="password" id="stripeKeyInput" placeholder="sk_live_...">
+        <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveStripeKey()">Salva</button>
       </div>
     </div>
 
@@ -674,23 +740,29 @@ function getAvgPrice() {
 
 // ─── RENDER ───
 function render() {
-  const manualRevenue = state.profiles.reduce((sum, p) => sum + (p.sales * p.price), 0);
-  let analyticsRevenue = 0;
-  const analyticsPurchases = analyticsData?.counts?.purchase || 0;
-  if (analyticsData?.recent) {
-    const purchaseEvents = analyticsData.recent.filter(e => e.type === 'purchase');
-    const sumFromEvents = purchaseEvents.reduce((s, e) => s + (parseFloat(e.data?.price) || 0), 0);
-    if (sumFromEvents > 0) {
-      const knownPurchases = purchaseEvents.length;
-      const unknownPurchases = Math.max(0, analyticsPurchases - knownPurchases);
-      analyticsRevenue = sumFromEvents + (unknownPurchases * 0.99);
+  // Revenue: prefer Stripe real data, fallback to manual/analytics
+  let totalRevenue = 0;
+  if (stripePaymentsCache && stripePaymentsCache.totalRevenue > 0) {
+    totalRevenue = stripePaymentsCache.totalRevenue;
+  } else {
+    const manualRevenue = state.profiles.reduce((sum, p) => sum + (p.sales * p.price), 0);
+    let analyticsRevenue = 0;
+    const analyticsPurchases = analyticsData?.counts?.purchase || 0;
+    if (analyticsData?.recent) {
+      const purchaseEvents = analyticsData.recent.filter(e => e.type === 'purchase');
+      const sumFromEvents = purchaseEvents.reduce((s, e) => s + (parseFloat(e.data?.price) || 0), 0);
+      if (sumFromEvents > 0) {
+        const knownPurchases = purchaseEvents.length;
+        const unknownPurchases = Math.max(0, analyticsPurchases - knownPurchases);
+        analyticsRevenue = sumFromEvents + (unknownPurchases * 0.99);
+      } else {
+        analyticsRevenue = analyticsPurchases * 0.99;
+      }
     } else {
       analyticsRevenue = analyticsPurchases * 0.99;
     }
-  } else {
-    analyticsRevenue = analyticsPurchases * 0.99;
+    totalRevenue = Math.max(manualRevenue, analyticsRevenue);
   }
-  const totalRevenue = Math.max(manualRevenue, analyticsRevenue);
   const pct = Math.min((totalRevenue / 1000) * 100, 100);
 
   animateValue(document.getElementById('totalRevenue'), totalRevenue, '€', '', 800);
@@ -782,6 +854,7 @@ function render() {
   document.getElementById('apiNotice').classList.toggle('show', !getApiKey());
   if (getApiKey()) document.getElementById('apiKeyInput').value = '••••••••••••••••';
   if (getRapidApiKey()) document.getElementById('rapidApiKeyInput').value = '••••••••••••••••';
+  if (getStripeKey()) document.getElementById('stripeKeyInput').value = '••••••••••••••••';
   document.getElementById('siteUrlInput').value = getSiteUrl();
 
   const today = new Date().toISOString().slice(0, 10);
@@ -1065,9 +1138,9 @@ function saveSiteUrl() { const url = document.getElementById('siteUrlInput').val
 
 // ─── KEY SHARING ───
 function generateKeyShareLink() {
-  const a = getApiKey(), r = getRapidApiKey(), s = getSiteUrl();
-  if (!a && !r) { alert('Nessuna key da condividere.'); return; }
-  const payload = btoa(JSON.stringify({ a, r, s }));
+  const a = getApiKey(), r = getRapidApiKey(), s = getSiteUrl(), sk = getStripeKey();
+  if (!a && !r && !sk) { alert('Nessuna key da condividere.'); return; }
+  const payload = btoa(JSON.stringify({ a, r, s, sk }));
   const link = window.location.href.split('?')[0] + '?keys=' + encodeURIComponent(payload);
   document.getElementById('shareLink').innerHTML = `<span style="color:var(--green)">✅ Link generato!</span><br><a href="${link}" style="color:var(--red)" target="_blank">${link.substring(0, 60)}...</a><br><button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="navigator.clipboard.writeText('${link}')">📋 Copia</button>`;
 }
@@ -1079,6 +1152,7 @@ function importKeysFromUrl() {
     if (p.a) localStorage.setItem('anthropic_api_key', p.a);
     if (p.r) localStorage.setItem('rapidapi_key', p.r);
     if (p.s) localStorage.setItem('site_url', p.s);
+    if (p.sk) localStorage.setItem('stripe_secret_key', p.sk);
     window.history.replaceState({}, '', window.location.pathname);
     addLog('🔑 Key importate!');
   } catch(e) {}
@@ -1211,6 +1285,114 @@ function trackRapidApiCall() {
   localStorage.setItem('rapid_call_date', today);
 }
 
+// ─── STRIPE API ───
+function getStripeKey() { return localStorage.getItem('stripe_secret_key') || ''; }
+function saveStripeKey() {
+  const key = document.getElementById('stripeKeyInput').value;
+  if (key && !key.startsWith('••')) {
+    localStorage.setItem('stripe_secret_key', key);
+    addLog('Stripe key salvata');
+    render();
+    fetchStripePayments();
+  }
+}
+
+let stripePaymentsCache = null;
+let stripeLastKnownOrders = -1;
+let stripePollInterval = null;
+
+async function fetchStripePayments() {
+  const sk = getStripeKey();
+  if (!sk) {
+    document.getElementById('stripeNoKey').style.display = 'block';
+    document.getElementById('stripeData').style.display = 'none';
+    return;
+  }
+  document.getElementById('stripeNoKey').style.display = 'none';
+  document.getElementById('stripeData').style.display = 'block';
+
+  const btn = document.getElementById('stripeRefreshBtn');
+  btn.textContent = '⏳'; btn.disabled = true;
+
+  try {
+    // Fetch charges (up to 100)
+    const res = await fetch('https://api.stripe.com/v1/charges?limit=100', {
+      headers: { 'Authorization': 'Basic ' + btoa(sk + ':') }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    let totalRevenue = 0, todayRevenue = 0, totalOrders = 0, todayOrders = 0;
+    const payments = [];
+
+    for (const ch of (data.data || [])) {
+      if (ch.status !== 'succeeded' || ch.refunded) continue;
+      const amt = ch.amount / 100;
+      const ts = new Date(ch.created * 1000);
+      const isToday = ts.toISOString().slice(0, 10) === todayStr;
+
+      totalRevenue += amt;
+      totalOrders++;
+      if (isToday) { todayRevenue += amt; todayOrders++; }
+
+      payments.push({ amount: amt, time: ts, isToday, currency: ch.currency || 'eur' });
+    }
+
+    // Check for new orders → play cash sound
+    if (stripeLastKnownOrders === -1) {
+      stripeLastKnownOrders = totalOrders;
+    } else if (totalOrders > stripeLastKnownOrders) {
+      const newOrders = totalOrders - stripeLastKnownOrders;
+      for (let i = 0; i < newOrders; i++) setTimeout(() => playCashSound(), i * 800);
+      addLog('💰💳 ' + newOrders + ' NUOV' + (newOrders === 1 ? 'O' : 'I') + ' ORDINE STRIPE! (€' + todayRevenue.toFixed(2) + ' oggi)');
+      const el = document.getElementById('totalRevenue');
+      el.style.animation = 'urgentFlash 0.3s ease 5';
+      setTimeout(() => el.style.animation = '', 1500);
+    }
+    stripeLastKnownOrders = totalOrders;
+
+    // Update header revenue with REAL Stripe data
+    const mainRevEl = document.getElementById('totalRevenue');
+    animateValue(mainRevEl, totalRevenue, '€', '', 800);
+    const pct = Math.min((totalRevenue / 1000) * 100, 100);
+    animateValue(document.getElementById('revenuePercent'), parseFloat(pct.toFixed(1)), '', '%', 600);
+    document.getElementById('revenueFill').style.width = pct + '%';
+
+    // Update Stripe section
+    animateValue(document.getElementById('stripeTotalRevenue'), totalRevenue, '€', '', 600);
+    animateValue(document.getElementById('stripeTodayRevenue'), todayRevenue, '€', '', 600);
+    animateValue(document.getElementById('stripeTotalOrders'), totalOrders, '', '', 600);
+    animateValue(document.getElementById('stripeTodayOrders'), todayOrders, '', '', 600);
+
+    // Payments list
+    const listHtml = payments.slice(0, 20).map(p => {
+      const timeStr = p.time.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      return '<div class="stripe-payment-row">' +
+        '<span class="sp-amount' + (p.isToday ? ' sp-today' : '') + '">€' + p.amount.toFixed(2) + '</span>' +
+        '<span class="sp-time">' + timeStr + (p.isToday ? ' ← OGGI' : '') + '</span>' +
+        '</div>';
+    }).join('');
+    document.getElementById('stripePaymentsList').innerHTML = listHtml || '<p style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Nessun pagamento trovato.</p>';
+
+    document.getElementById('stripeLastUpdate').textContent = 'Aggiornato: ' + now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    stripePaymentsCache = { totalRevenue, todayRevenue, totalOrders, todayOrders, payments };
+
+  } catch (err) {
+    console.error('Stripe fetch error:', err);
+    addLog('⚠️ Errore Stripe: ' + err.message);
+  }
+  btn.textContent = '🔄'; btn.disabled = false;
+}
+
+function startStripePoll() {
+  if (stripePollInterval) clearInterval(stripePollInterval);
+  stripePollInterval = setInterval(() => {
+    if (getStripeKey()) fetchStripePayments();
+  }, 30000); // Poll every 30s
+}
+
 // ─── COUNTDOWN ───
 function updateCountdown() {
   const now = new Date();
@@ -1253,6 +1435,8 @@ loadState();
 render();
 fetchAnalytics();
 startAutoPoll();
+fetchStripePayments();
+startStripePoll();
 </script>
 </body>
 </html>
