@@ -433,6 +433,9 @@ export default function Home() {
                     </div>
                     <span className="text-muted line-through text-sm mt-1">€14,99</span>
                   </div>
+                  <div className="bg-bg3/50 rounded-lg px-3 py-1.5 mb-4 inline-block">
+                    <p className="text-[11px] text-muted">⏳ Accesso per <span className="text-txt font-semibold">24 ore</span></p>
+                  </div>
                   <div className="flex flex-col gap-2 mb-5">
                     {[
                       "Guida base: i 5 segnali",
@@ -449,7 +452,7 @@ export default function Home() {
                       "Posizione in tempo reale",
                       "Accesso galleria foto",
                       "Aggiornamenti futuri",
-                      "Garanzia 100%",
+                      "Accesso permanente",
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="text-muted/30">✗</span>
@@ -480,6 +483,9 @@ export default function Home() {
                       <div className="bg-red/10 text-red text-[10px] font-bold px-2 py-0.5 rounded-full mt-1">-80%</div>
                     </div>
                   </div>
+                  <div className="bg-red/5 border border-red/20 rounded-lg px-3 py-1.5 mb-4 inline-block">
+                    <p className="text-[11px] text-red">🔓 Accesso per <span className="font-bold">1 anno</span> — scarica e tieni per sempre</p>
+                  </div>
                   <div className="flex flex-col gap-2 mb-5">
                     {[
                       "Tutto del pacchetto Base",
@@ -489,7 +495,7 @@ export default function Home() {
                       "Spiare la posizione in tempo reale",
                       "Accesso alla galleria foto del telefono",
                       "Vedere chi segue di nascosto",
-                      "Aggiornamenti gratuiti per sempre",
+                      "Aggiornamenti gratuiti per 1 anno",
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="text-red">✓</span>
@@ -518,14 +524,18 @@ export default function Home() {
                     </div>
                     <span className="text-muted line-through text-sm mt-1">€89,99</span>
                   </div>
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-1.5 mb-4 inline-block">
+                    <p className="text-[11px] text-amber-400">♾️ Accesso <span className="font-bold">PER SEMPRE</span> + aggiornamenti a vita</p>
+                  </div>
                   <div className="flex flex-col gap-2 mb-5">
                     {[
                       "Tutto del pacchetto Completo",
+                      "Accesso permanente — per sempre tuo",
                       "Guida anti-scoperta: non saprà mai nulla",
                       "Metodo per controllare 2+ dispositivi",
                       "Supporto prioritario via email",
                       "Bonus: segnali di manipolazione emotiva",
-                      "Garanzia soddisfatto o rimborsato 100%",
+                      "Aggiornamenti gratuiti per sempre",
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="text-amber-400">✓</span>
