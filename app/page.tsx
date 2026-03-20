@@ -409,6 +409,13 @@ export default function Home() {
               <p className="text-xs text-muted">
                 Accesso immediato · Pagamento sicuro Stripe
               </p>
+              <p className="text-[10px] text-muted/40 mt-2">
+                Cliccando accetti i{" "}
+                <a href="/termini" className="underline hover:text-muted/70">
+                  Termini e Condizioni
+                </a>{" "}
+                e rinunci al diritto di recesso per contenuti digitali (Dir. 2011/83/UE)
+              </p>
             </div>
           </section>
 
@@ -525,6 +532,9 @@ export default function Home() {
         <p className="text-xs text-muted/50">
           © {new Date().getFullYear()} — Tutti i diritti riservati
         </p>
+        <a href="/termini" className="text-xs text-muted/40 hover:text-muted/70 transition-colors mt-1 inline-block">
+          Termini e Condizioni
+        </a>
       </footer>
     </main>
   );
