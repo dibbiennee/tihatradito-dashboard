@@ -202,12 +202,9 @@ export default function Home() {
     [answers, step]
   );
 
-  const baseLink =
-    process.env.NEXT_PUBLIC_STRIPE_BASE_LINK || "#";
-  const upsellLink =
-    process.env.NEXT_PUBLIC_STRIPE_UPSELL_LINK || baseLink;
-  const premiumLink =
-    process.env.NEXT_PUBLIC_STRIPE_PREMIUM_LINK || upsellLink;
+  const baseLink = "https://buy.stripe.com/28E8wO8fo2oM82EbC92Nq03";
+  const upsellLink = "https://buy.stripe.com/7sY3cufHQe7u1Egay52Nq04";
+  const premiumLink = "https://buy.stripe.com/8x228qgLU3sQ2IkbC92Nq05";
 
   const handleCTA = () => {
     trackEvent("cta_click", { score, risk: result.risk });
