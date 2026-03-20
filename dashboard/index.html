@@ -175,6 +175,33 @@
   .btn-refresh.spinning { animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ─── VIDEO COMPACT ROWS ─── */
+  .video-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border-radius: var(--radius-xs); cursor: pointer; transition: background 0.15s;
+    border-bottom: 1px solid rgba(34,34,46,0.3);
+  }
+  .video-row:last-child { border-bottom: none; }
+  .video-row:hover { background: var(--bg3); }
+  .video-row .vr-hook { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .video-row .vr-stat { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 3px; min-width: 60px; }
+  .video-row .vr-stat span { font-size: 10px; }
+
+  /* ─── VIDEO DETAIL MODAL ─── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-content {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; max-width: 420px; width: 100%; box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.2s ease;
+  }
+  .modal-content h3 { font-size: 16px; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: normal; margin-bottom: 16px; }
+  .modal-close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  .modal-close:hover { color: var(--text); }
+  .modal-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+
   @media (max-width: 700px) {
     .video-table-header { grid-template-columns: 1fr repeat(4, 55px) 30px; }
     .video-stats { grid-template-columns: 1fr repeat(4, 55px) 30px; }
@@ -677,21 +704,17 @@ function render() {
     const rev = p.sales * p.price;
     const isWinner = rev > 0 && rev === maxRevenue;
 
-    const videosHtml = p.videos.length > 0 ? p.videos.map((v, i) => `
-      <div class="video-entry">
-        <div class="video-stats">
-          <div class="hook-name" title="${v.hook || 'Video ' + (i+1)}">${v.hook || 'Video ' + (i+1)}</div>
-          <input type="number" value="${v.views||0}" onchange="updateVideo('${p.id}',${i},'views',this.value)" placeholder="0">
-          <input type="number" value="${v.likes||0}" onchange="updateVideo('${p.id}',${i},'likes',this.value)" placeholder="0">
-          <input type="number" value="${v.comments||0}" onchange="updateVideo('${p.id}',${i},'comments',this.value)" placeholder="0">
-          <input type="number" value="${v.shares||0}" onchange="updateVideo('${p.id}',${i},'shares',this.value)" placeholder="0">
-          <button class="btn-refresh" onclick="refreshSingleVideo('${p.id}',${i})" title="Aggiorna">🔄</button>
+    const videosHtml = p.videos.length > 0 ? p.videos.map((v, i) => {
+      const views = parseInt(v.views)||0;
+      const likes = parseInt(v.likes)||0;
+      return `
+        <div class="video-row" onclick="openVideoDetail('${p.id}',${i})">
+          <div class="vr-hook" title="${v.hook || 'Video ' + (i+1)}">${v.hook || 'Video ' + (i+1)}</div>
+          <div class="vr-stat"><span>👁</span> ${views > 999 ? (views/1000).toFixed(1)+'k' : views}</div>
+          <div class="vr-stat"><span>❤️</span> ${likes > 999 ? (likes/1000).toFixed(1)+'k' : likes}</div>
         </div>
-        <div class="video-id-row">
-          <input type="text" value="${v.tiktokId||''}" onchange="updateVideo('${p.id}',${i},'tiktokId',this.value)" placeholder="TikTok Video ID">
-        </div>
-      </div>
-    `).join('') : '<p style="color:var(--muted);font-size:12px;padding:8px 0">Nessun video.</p>';
+      `;
+    }).join('') : '<p style="color:var(--muted);font-size:12px;padding:8px 0">Nessun video.</p>';
 
     return `
       <div class="card profile-card ${isWinner ? 'winner' : ''}">
@@ -705,14 +728,12 @@ function render() {
             <div class="rev-sales">${p.sales} vendite</div>
           </div>
         </div>
-        <div class="video-table">
-          <div class="video-table-header">
-            <div>Hook</div><div>Views</div><div>Like</div><div>Comm.</div><div>Share</div><div></div>
-          </div>
+        <div style="margin-top:4px">
           ${videosHtml}
         </div>
-        <div style="margin-top:10px">
-          <button class="btn btn-ghost btn-sm" onclick="addVideo('${p.id}')">+ Video</button>
+        <div style="margin-top:10px;display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="addVideo('${p.id}')">+ Manuale</button>
+          <button class="btn btn-red btn-sm" onclick="fetchLatestVideos('${p.id}')">📥 Fetch ultimi</button>
         </div>
       </div>
     `;
@@ -795,7 +816,7 @@ function addVideo(profileId) {
 }
 function updateVideo(profileId, videoIndex, field, value) {
   const profile = state.profiles.find(p => p.id === profileId);
-  profile.videos[videoIndex][field] = field === 'tiktokId' ? value.trim() : (parseInt(value) || 0);
+  profile.videos[videoIndex][field] = (field === 'tiktokId' || field === 'hook') ? value.trim() : (parseInt(value) || 0);
   addLog(`Aggiornato ${field} video ${videoIndex+1} di ${profile.name}: ${value}`);
   render();
 }
@@ -823,6 +844,120 @@ function saveApiKey() {
 function addLog(text) {
   state.log.push({ time: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }), text });
   saveState();
+}
+
+// ─── VIDEO DETAIL MODAL ───
+function openVideoDetail(profileId, videoIndex) {
+  const profile = state.profiles.find(p => p.id === profileId);
+  const v = profile.videos[videoIndex];
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="modal-content" style="position:relative">
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+      <h3>📹 ${v.hook || 'Video ' + (videoIndex+1)}</h3>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:14px">${profile.name} · ${profile.handle}</p>
+      <label>Hook</label>
+      <input type="text" value="${v.hook||''}" onchange="updateVideo('${profileId}',${videoIndex},'hook',this.value)" placeholder="Hook del video">
+      <div class="modal-stats">
+        <div><label>👁 Views</label><input type="number" value="${v.views||0}" onchange="updateVideo('${profileId}',${videoIndex},'views',this.value)"></div>
+        <div><label>❤️ Like</label><input type="number" value="${v.likes||0}" onchange="updateVideo('${profileId}',${videoIndex},'likes',this.value)"></div>
+        <div><label>💬 Commenti</label><input type="number" value="${v.comments||0}" onchange="updateVideo('${profileId}',${videoIndex},'comments',this.value)"></div>
+        <div><label>↗️ Share</label><input type="number" value="${v.shares||0}" onchange="updateVideo('${profileId}',${videoIndex},'shares',this.value)"></div>
+      </div>
+      <label>TikTok Video ID</label>
+      <input type="text" value="${v.tiktokId||''}" onchange="updateVideo('${profileId}',${videoIndex},'tiktokId',this.value)" placeholder="Es: 7619074692749462806">
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-red btn-sm" onclick="refreshAndCloseModal('${profileId}',${videoIndex},this)">🔄 Aggiorna stats</button>
+        <button class="btn btn-ghost btn-sm" onclick="removeVideo('${profileId}',${videoIndex})">🗑 Rimuovi</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function refreshAndCloseModal(profileId, videoIndex, btn) {
+  const profile = state.profiles.find(p => p.id === profileId);
+  const video = profile.videos[videoIndex];
+  if (!video.tiktokId) { alert('Inserisci il TikTok Video ID'); return; }
+  btn.textContent = '⏳ Aggiornando...'; btn.disabled = true;
+  const stats = await fetchVideoStats(video.tiktokId);
+  if (stats) {
+    Object.assign(video, stats);
+    state.lastUpdate = new Date().toISOString();
+    addLog('Stats "' + video.hook + '": ' + stats.views + ' views');
+    saveState();
+    // Close modal and re-render
+    document.querySelector('.modal-overlay')?.remove();
+    render();
+  } else {
+    btn.textContent = '🔄 Aggiorna stats'; btn.disabled = false;
+    addLog('Errore stats "' + video.hook + '"');
+  }
+}
+
+function removeVideo(profileId, videoIndex) {
+  if (!confirm('Rimuovere questo video?')) return;
+  const profile = state.profiles.find(p => p.id === profileId);
+  const removed = profile.videos.splice(videoIndex, 1)[0];
+  addLog('Rimosso video "' + (removed.hook || 'Video') + '" da ' + profile.name);
+  document.querySelector('.modal-overlay')?.remove();
+  render();
+}
+
+// ─── FETCH LATEST VIDEOS FROM PROFILE ───
+async function fetchLatestVideos(profileId) {
+  const apiKey = getRapidApiKey();
+  if (!apiKey) { alert('Inserisci la RapidAPI key nel tab Setup'); return; }
+  const profile = state.profiles.find(p => p.id === profileId);
+  const username = profile.handle.replace('@', '');
+
+  const btn = event.target;
+  const origText = btn.textContent;
+  btn.textContent = '⏳...'; btn.disabled = true;
+
+  try {
+    if (!checkRapidApiLimit()) { btn.textContent = origText; btn.disabled = false; return; }
+    trackRapidApiCall();
+    const res = await fetch('https://tokapi-mobile-version.p.rapidapi.com/v1/user/posts?username=' + username + '&count=6&offset=0', {
+      headers: { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': 'tokapi-mobile-version.p.rapidapi.com' }
+    });
+    if (!res.ok) throw new Error('API error: ' + res.status);
+    const data = await res.json();
+    const items = data?.aweme_list || data?.items || [];
+    if (items.length === 0) throw new Error('No videos found');
+
+    // Get existing tiktokIds to avoid duplicates
+    const existingIds = new Set(profile.videos.map(v => v.tiktokId));
+
+    let added = 0;
+    items.forEach(item => {
+      const videoId = String(item.aweme_id || item.id || '');
+      if (!videoId || existingIds.has(videoId)) return;
+      const desc = item.desc || item.description || 'Video';
+      const s = item.statistics || {};
+      profile.videos.push({
+        hook: desc.substring(0, 60),
+        views: s.play_count || 0,
+        likes: s.digg_count || 0,
+        comments: s.comment_count || 0,
+        shares: s.share_count || 0,
+        tiktokId: videoId
+      });
+      existingIds.add(videoId);
+      added++;
+    });
+
+    state.lastUpdate = new Date().toISOString();
+    addLog('Trovati ' + added + ' nuovi video per ' + profile.name);
+    saveState();
+    render();
+  } catch(err) {
+    console.error('Fetch videos error:', err);
+    addLog('Errore fetch video ' + profile.name + ': ' + err.message);
+  }
+  btn.textContent = origText; btn.disabled = false;
 }
 
 // ─── TIKTOK STATS ───
