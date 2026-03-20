@@ -205,7 +205,7 @@ export default function Home() {
   // Pricing tiers — €0.99 rimosso, 3 tier diretti
   const starterLink = "https://buy.stripe.com/7sY3cufHQe7u1Egay52Nq04";   // €2.99
   const proLink = "https://buy.stripe.com/8x228qgLU3sQ2IkbC92Nq05";       // €9.99
-  const ultimateLink = "PLACEHOLDER_NEED_STRIPE_LINK";                      // €19.99
+  const ultimateLink = "https://buy.stripe.com/3cIbJ0fHQ1kI0AcfSp2Nq06";   // €19.99
 
   const handleCTA = () => {
     trackEvent("cta_click", { score, risk: result.risk });

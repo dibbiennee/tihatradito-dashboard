@@ -24,7 +24,7 @@ const STRIPE_PRICES: Record<string, number> = {
   "bC92Nq03": 0.99,   // Legacy Base — €0.99 (rimosso ma supportato)
   "y52Nq04": 2.99,    // Starter — €2.99
   "bC92Nq05": 9.99,   // Pro — €9.99
-  // "XXXX": 19.99,   // Ultimate — €19.99 (TODO: add when link created)
+  "Sp2Nq06": 19.99,   // Ultimate — €19.99
   // Old account (legacy)
   "3hg9IQ0p": 0.99,
   "dVU9IQ0q": 2.99,
