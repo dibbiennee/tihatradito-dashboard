@@ -64,11 +64,13 @@ function useCountdown(seconds: number) {
     } else {
       localStorage.setItem(STORAGE_KEY, now.toString());
     }
+  }, [seconds]);
 
+  useEffect(() => {
     if (timeLeft <= 0) return;
     const t = setInterval(() => setTimeLeft((v) => (v > 0 ? v - 1 : 0)), 1000);
     return () => clearInterval(t);
-  }, [seconds, timeLeft]);
+  }, [timeLeft > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const m = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const s = String(timeLeft % 60).padStart(2, "0");
@@ -121,6 +123,15 @@ export default function GraziePage() {
         referrer: document.referrer || "direct",
         timestamp: new Date().toISOString(),
       });
+    }
+  }, []);
+
+  // Track upsell impression
+  const trackedImpression = useRef(false);
+  useEffect(() => {
+    if (!trackedImpression.current) {
+      trackedImpression.current = true;
+      trackEvent("upsell_impression", { products: ["ebook_pratico", "ebook_segreto"] });
     }
   }, []);
 

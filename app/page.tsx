@@ -311,7 +311,7 @@ export default function Home() {
             ))}
           </div>
           <span className="text-muted text-sm">
-            +847 persone hanno già scoperto la verità
+            +1.247 persone hanno già scoperto la verità
           </span>
         </div>
       </section>
@@ -439,7 +439,7 @@ export default function Home() {
                 {
                   name: "Sara, 27",
                   city: "Roma",
-                  text: "Ho speso meno di un caffè e mi ha cambiato la vita.",
+                  text: "Non ci credevo, ma in 10 minuti avevo tutto nero su bianco.",
                 },
               ].map((t, i) => (
                 <div
