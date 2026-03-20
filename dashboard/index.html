@@ -346,7 +346,7 @@
       </div>
     </div>
     <div id="stripeContent">
-      <div class="stripe-no-key" id="stripeNoKey">⚙️ Inserisci la Stripe Secret Key nel tab Setup per vedere i pagamenti reali.</div>
+      <div class="stripe-no-key" id="stripeNoKey">⏳ Caricamento dati Stripe...</div>
       <div id="stripeData" style="display:none">
         <div class="stripe-grid">
           <div class="stripe-stat">
@@ -355,7 +355,7 @@
           </div>
           <div class="stripe-stat">
             <div class="ss-value" id="stripeTodayRevenue" style="color:var(--amber)">€0</div>
-            <div class="ss-label">Revenue oggi</div>
+            <div class="ss-label">€/ora</div>
           </div>
           <div class="stripe-stat">
             <div class="ss-value" id="stripeTotalOrders">0</div>
@@ -363,7 +363,7 @@
           </div>
           <div class="stripe-stat">
             <div class="ss-value" id="stripeTodayOrders" style="color:var(--amber)">0</div>
-            <div class="ss-label">Ordini oggi</div>
+            <div class="ss-label">Proiezione 24h</div>
           </div>
         </div>
         <div class="stripe-payments" id="stripePaymentsList"></div>
@@ -513,16 +513,9 @@
         <div id="rapidUsage" style="margin-top:6px;font-size:11px;color:var(--muted)">0/100 oggi</div>
       </div>
       <div class="card">
-        <h3>🔑 Stripe Key (NUOVO)</h3>
-        <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Account Stripe attivo.</p>
-        <input type="password" id="stripeKeyInput" placeholder="sk_live_...">
-        <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveStripeKey()">Salva</button>
-      </div>
-      <div class="card">
-        <h3>🔑 Stripe Key (VECCHIO)</h3>
-        <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Account Stripe precedente — per sommare tutti gli ordini.</p>
-        <input type="password" id="stripeKeyOldInput" placeholder="sk_live_... (vecchio)">
-        <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="saveStripeKeyOld()">Salva</button>
+        <h3>💳 Stripe</h3>
+        <p style="font-size:11px;color:var(--green);margin-bottom:4px">✅ Collegato via server (entrambi gli account)</p>
+        <p style="font-size:11px;color:var(--muted)">Le key Stripe sono nelle env variables di Vercel. I dati arrivano via <code>/api/stripe-data</code>.</p>
       </div>
     </div>
 
@@ -860,8 +853,6 @@ function render() {
   document.getElementById('apiNotice').classList.toggle('show', !getApiKey());
   if (getApiKey()) document.getElementById('apiKeyInput').value = '••••••••••••••••';
   if (getRapidApiKey()) document.getElementById('rapidApiKeyInput').value = '••••••••••••••••';
-  if (getStripeKey()) document.getElementById('stripeKeyInput').value = '••••••••••••••••';
-  if (getStripeKeyOld()) document.getElementById('stripeKeyOldInput').value = '••••••••••••••••';
   document.getElementById('siteUrlInput').value = getSiteUrl();
 
   const today = new Date().toISOString().slice(0, 10);
@@ -1293,56 +1284,12 @@ function trackRapidApiCall() {
   localStorage.setItem('rapid_call_date', today);
 }
 
-// ─── STRIPE API ───
-function getStripeKey() { return localStorage.getItem('stripe_secret_key') || ''; }
-function getStripeKeyOld() { return localStorage.getItem('stripe_secret_key_old') || ''; }
-function saveStripeKey() {
-  const key = document.getElementById('stripeKeyInput').value;
-  if (key && !key.startsWith('••')) {
-    localStorage.setItem('stripe_secret_key', key);
-    addLog('Stripe key (nuovo) salvata');
-    render();
-    fetchStripePayments();
-  }
-}
-function saveStripeKeyOld() {
-  const key = document.getElementById('stripeKeyOldInput').value;
-  if (key && !key.startsWith('••')) {
-    localStorage.setItem('stripe_secret_key_old', key);
-    addLog('Stripe key (vecchio) salvata');
-    render();
-    fetchStripePayments();
-  }
-}
-
+// ─── STRIPE API (via server proxy — no CORS issues) ───
 let stripePaymentsCache = null;
 let stripeLastKnownOrders = -1;
 let stripePollInterval = null;
 
-async function fetchChargesFromAccount(sk, label) {
-  try {
-    const res = await fetch('https://api.stripe.com/v1/charges?limit=100', {
-      headers: { 'Authorization': 'Basic ' + btoa(sk + ':') }
-    });
-    if (!res.ok) throw new Error(label + ' HTTP ' + res.status);
-    const data = await res.json();
-    return (data.data || []).filter(ch => ch.status === 'succeeded' && !ch.refunded).map(ch => ({
-      amount: ch.amount / 100,
-      time: new Date(ch.created * 1000),
-      currency: ch.currency || 'eur',
-      account: label
-    }));
-  } catch(err) { console.error('Stripe fetch ' + label + ':', err); return []; }
-}
-
 async function fetchStripePayments() {
-  const sk = getStripeKey();
-  const skOld = getStripeKeyOld();
-  if (!sk && !skOld) {
-    document.getElementById('stripeNoKey').style.display = 'block';
-    document.getElementById('stripeData').style.display = 'none';
-    return;
-  }
   document.getElementById('stripeNoKey').style.display = 'none';
   document.getElementById('stripeData').style.display = 'block';
 
@@ -1350,36 +1297,13 @@ async function fetchStripePayments() {
   btn.textContent = '⏳'; btn.disabled = true;
 
   try {
-    // Fetch from BOTH accounts in parallel
-    const [chargesNew, chargesOld] = await Promise.all([
-      sk ? fetchChargesFromAccount(sk, '🆕') : [],
-      skOld ? fetchChargesFromAccount(skOld, '📦') : []
-    ]);
+    const res = await fetch(getSiteUrl() + '/api/stripe-data', { mode: 'cors' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
 
-    // Merge and sort by time descending
-    const allCharges = [...chargesNew, ...chargesOld].sort((a, b) => b.time - a.time);
-
-    // Only count orders from today 02:00 UTC onwards (campaign start)
-    const now = new Date();
-    const campaignStart = new Date(now);
-    campaignStart.setUTCHours(2, 0, 0, 0); // oggi alle 02:00 UTC
-    if (now < campaignStart) campaignStart.setUTCDate(campaignStart.getUTCDate() - 1);
-
-    let totalRevenue = 0, todayRevenue = 0, totalOrders = 0, todayOrders = 0;
-    const payments = [];
-
-    for (const ch of allCharges) {
-      const isCampaign = ch.time >= campaignStart;
-      // Total = solo da inizio campagna (02:00)
-      if (isCampaign) {
-        totalRevenue += ch.amount;
-        totalOrders++;
-      }
-      // Oggi = ultimi ordini per la lista
-      const isToday = ch.time.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
-      if (isToday) { todayRevenue += ch.amount; todayOrders++; }
-      payments.push({ amount: ch.amount, time: ch.time, isToday: isCampaign, currency: ch.currency, account: ch.account });
-    }
+    const totalRevenue = d.campaignRevenue || 0;
+    const totalOrders = d.campaignOrders || 0;
 
     // Check for new orders → play cash sound
     if (stripeLastKnownOrders === -1) {
@@ -1387,52 +1311,51 @@ async function fetchStripePayments() {
     } else if (totalOrders > stripeLastKnownOrders) {
       const newOrders = totalOrders - stripeLastKnownOrders;
       for (let i = 0; i < newOrders; i++) setTimeout(() => playCashSound(), i * 800);
-      addLog('💰💳 ' + newOrders + ' NUOV' + (newOrders === 1 ? 'O' : 'I') + ' ORDINE STRIPE! (€' + todayRevenue.toFixed(2) + ' oggi)');
+      addLog('💰💳 ' + newOrders + ' NUOV' + (newOrders === 1 ? 'O' : 'I') + ' ORDINE! (€' + totalRevenue.toFixed(2) + ' campagna)');
       const el = document.getElementById('totalRevenue');
       el.style.animation = 'urgentFlash 0.3s ease 5';
       setTimeout(() => el.style.animation = '', 1500);
     }
     stripeLastKnownOrders = totalOrders;
 
-    // Update header revenue with REAL Stripe data
-    const mainRevEl = document.getElementById('totalRevenue');
-    animateValue(mainRevEl, totalRevenue, '€', '', 800);
+    // Update header revenue
+    animateValue(document.getElementById('totalRevenue'), totalRevenue, '€', '', 800);
     const pct = Math.min((totalRevenue / 1000) * 100, 100);
     animateValue(document.getElementById('revenuePercent'), parseFloat(pct.toFixed(1)), '', '%', 600);
     document.getElementById('revenueFill').style.width = pct + '%';
 
     // Update Stripe section
     animateValue(document.getElementById('stripeTotalRevenue'), totalRevenue, '€', '', 600);
-    animateValue(document.getElementById('stripeTodayRevenue'), todayRevenue, '€', '', 600);
+    animateValue(document.getElementById('stripeTodayRevenue'), d.ratePerHour || 0, '€', '', 600);
     animateValue(document.getElementById('stripeTotalOrders'), totalOrders, '', '', 600);
-    animateValue(document.getElementById('stripeTodayOrders'), todayOrders, '', '', 600);
+    animateValue(document.getElementById('stripeTodayOrders'), d.projected24h || 0, '', '', 600);
 
-    // Payments list — only show campaign orders
-    const campaignPayments = payments.filter(p => p.isToday);
-    const listHtml = campaignPayments.slice(0, 30).map(p => {
-      const timeStr = p.time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    // Payments list
+    const payments = d.payments || [];
+    const listHtml = payments.slice(0, 30).map(p => {
+      const ts = new Date(p.created * 1000);
+      const timeStr = ts.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
       return '<div class="stripe-payment-row">' +
-        '<span class="sp-amount sp-today">' + p.account + ' €' + p.amount.toFixed(2) + '</span>' +
+        '<span class="sp-amount sp-today">' + (p.account||'') + ' €' + p.amount.toFixed(2) + '</span>' +
         '<span class="sp-time">' + timeStr + '</span>' +
         '</div>';
     }).join('');
-    document.getElementById('stripePaymentsList').innerHTML = listHtml || '<p style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Nessun pagamento trovato.</p>';
+    document.getElementById('stripePaymentsList').innerHTML = listHtml || '<p style="color:var(--muted);font-size:12px;text-align:center;padding:10px">In attesa dati...</p>';
 
+    const now = new Date();
     document.getElementById('stripeLastUpdate').textContent = 'Aggiornato: ' + now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    stripePaymentsCache = { totalRevenue, todayRevenue, totalOrders, todayOrders, payments };
+    stripePaymentsCache = { totalRevenue, totalOrders };
 
   } catch (err) {
     console.error('Stripe fetch error:', err);
-    addLog('⚠️ Errore Stripe: ' + err.message);
+    document.getElementById('stripePaymentsList').innerHTML = '<p style="color:var(--red);font-size:12px;text-align:center;padding:10px">⚠️ ' + err.message + '</p>';
   }
   btn.textContent = '🔄'; btn.disabled = false;
 }
 
 function startStripePoll() {
   if (stripePollInterval) clearInterval(stripePollInterval);
-  stripePollInterval = setInterval(() => {
-    if (getStripeKey() || getStripeKeyOld()) fetchStripePayments();
-  }, 30000); // Poll every 30s
+  stripePollInterval = setInterval(() => fetchStripePayments(), 30000);
 }
 
 // ─── COUNTDOWN ───
