@@ -18,12 +18,14 @@ function trackEvent(type: string, data: Record<string, unknown> = {}) {
   }
 }
 
-// Map Stripe Payment Link IDs to prices (new account)
+// Map Stripe Payment Link IDs to prices
 const STRIPE_PRICES: Record<string, number> = {
-  "bC92Nq03": 0.99,   // Base — €0.99
-  "y52Nq04": 2.99,    // Upsell — €2.99
-  "bC92Nq05": 9.99,   // Premium — €9.99
-  // Old links (keep for safety)
+  // New account
+  "bC92Nq03": 0.99,   // Legacy Base — €0.99 (rimosso ma supportato)
+  "y52Nq04": 2.99,    // Starter — €2.99
+  "bC92Nq05": 9.99,   // Pro — €9.99
+  // "XXXX": 19.99,   // Ultimate — €19.99 (TODO: add when link created)
+  // Old account (legacy)
   "3hg9IQ0p": 0.99,
   "dVU9IQ0q": 2.99,
   "7xw9IQ0r": 9.99,
@@ -42,10 +44,10 @@ function detectPrice(): number {
 
   // Check for price param (can be added to Stripe success URL)
   const priceParam = search.get("p");
-  if (priceParam) return parseFloat(priceParam) || 0.99;
+  if (priceParam) return parseFloat(priceParam) || 2.99;
 
-  // Default to base price
-  return 0.99;
+  // Default to starter price
+  return 2.99;
 }
 
 export default function GraziePage() {
