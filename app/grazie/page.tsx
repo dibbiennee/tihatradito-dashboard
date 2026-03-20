@@ -42,12 +42,11 @@ function detectPrice(): number {
   return 2.99;
 }
 
-/* ─── STRIPE PAYMENT LINKS (sostituisci PLACEHOLDER con i tuoi) ─── */
+/* ─── STRIPE EBOOK LINK ─── */
 const STRIPE_EBOOK1 = "https://buy.stripe.com/dRm6oG53cbZmciUfSp2Nq07"; // €19,99
-const STRIPE_EBOOK2 = "https://buy.stripe.com/7sYdR8eDM1kIfv68pX2Nq08"; // €49,99
 
 /* ─── COUNTDOWN ─── */
-const COUNTDOWN_SECONDS = 7 * 60;
+const COUNTDOWN_SECONDS = 5 * 60; // 5 minuti — più breve = più urgenza
 
 function useCountdown(seconds: number) {
   const [timeLeft, setTimeLeft] = useState(seconds);
@@ -77,41 +76,16 @@ function useCountdown(seconds: number) {
   return { m, s, expired: timeLeft <= 0 };
 }
 
-function CountdownBadge({ m, s, expired }: { m: string; s: string; expired: boolean }) {
-  if (expired)
-    return (
-      <span style={{ color: "#e8001d", fontFamily: "monospace", fontSize: 13 }}>
-        ⚠️ OFFERTA SCADUTA
-      </span>
-    );
-  return (
-    <span
-      style={{
-        fontFamily: "monospace",
-        fontSize: 14,
-        color: "#ff4444",
-        background: "rgba(232,0,29,0.12)",
-        border: "1px solid rgba(232,0,29,0.3)",
-        borderRadius: 4,
-        padding: "2px 8px",
-        letterSpacing: 1,
-      }}
-    >
-      ⏱ {m}:{s}
-    </span>
-  );
-}
-
 /* ═══════════════════════════════════════
-   GRAZIE PAGE
+   GRAZIE PAGE — UPSELL BEFORE DOWNLOAD
    ═══════════════════════════════════════ */
 export default function GraziePage() {
   const pdfFile = process.env.NEXT_PUBLIC_PDF_URL?.replace("/", "") || "scopri-la-verita.pdf";
   const pdfUrl = `/api/download?f=${encodeURIComponent(pdfFile)}`;
   const { m, s, expired } = useCountdown(COUNTDOWN_SECONDS);
-  const [dismissed, setDismissed] = useState(false);
-  const [glowing, setGlowing] = useState(false);
+  const [showDownload, setShowDownload] = useState(false);
   const tracked = useRef(false);
+  const trackedImpression = useRef(false);
 
   // Track purchase
   useEffect(() => {
@@ -127,24 +101,24 @@ export default function GraziePage() {
   }, []);
 
   // Track upsell impression
-  const trackedImpression = useRef(false);
   useEffect(() => {
     if (!trackedImpression.current) {
       trackedImpression.current = true;
-      trackEvent("upsell_impression", { products: ["ebook_pratico", "ebook_segreto"] });
+      trackEvent("upsell_impression", { product: "ebook_pratico", position: "before_download" });
     }
   }, []);
 
-  // Pulsazione badge censura
-  useEffect(() => {
-    const interval = setInterval(() => setGlowing((v) => !v), 1800);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleBuy = (url: string, product: string, price: number) => {
+  const handleBuy = () => {
     if (expired) return;
-    trackEvent("upsell_click", { product, price });
-    window.open(url, "_blank");
+    trackEvent("upsell_click", { product: "ebook_pratico", price: 19.99 });
+    window.open(STRIPE_EBOOK1, "_blank");
+    // Mostra comunque il download dopo il click
+    setShowDownload(true);
+  };
+
+  const handleSkip = () => {
+    trackEvent("upsell_dismiss", { position: "before_download" });
+    setShowDownload(true);
   };
 
   return (
@@ -158,71 +132,20 @@ export default function GraziePage() {
       }}
     >
       <style>{`
-        .card {
+        .upsell-card {
           background: #111;
-          border: 1px solid #222;
-          border-radius: 12px;
-          padding: 28px 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          flex: 1;
-          min-width: 280px;
-          max-width: 420px;
-          transition: transform 0.2s, border-color 0.2s;
+          border: 2px solid rgba(232,0,29,0.3);
+          border-radius: 16px;
+          padding: 32px 24px;
+          max-width: 440px;
+          margin: 0 auto;
           position: relative;
           overflow: hidden;
+          box-shadow: 0 0 40px rgba(232,0,29,0.08);
+          transition: border-color 0.3s;
         }
-        .card:hover { transform: translateY(-3px); }
-        .card-1 { border-color: #333; }
-        .card-1:hover { border-color: rgba(232,0,29,0.4); }
-        .card-2 {
-          border-color: rgba(232,0,29,0.35);
-          box-shadow: 0 0 32px rgba(232,0,29,0.08);
-        }
-        .card-2:hover {
-          border-color: rgba(232,0,29,0.7);
-          box-shadow: 0 0 48px rgba(232,0,29,0.18);
-        }
-        .btn {
-          width: 100%;
-          padding: 16px;
-          border-radius: 8px;
-          border: none;
-          cursor: pointer;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 18px;
-          letter-spacing: 1.5px;
-          transition: all 0.2s;
-        }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-1 {
-          background: #e8001d;
-          color: #fff;
-        }
-        .btn-1:not(:disabled):hover { background: #c0001a; }
-        .btn-2 {
-          background: linear-gradient(135deg, #e8001d, #7a0010);
-          color: #fff;
-          box-shadow: 0 4px 24px rgba(232,0,29,0.4);
-        }
-        .btn-2:not(:disabled):hover {
-          box-shadow: 0 4px 32px rgba(232,0,29,0.6);
-          transform: scale(1.01);
-        }
-        .censura-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: #e8001d;
-          color: #fff;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          padding: 4px 10px;
-          border-radius: 4px;
-          transition: box-shadow 0.4s;
+        .upsell-card:hover {
+          border-color: rgba(232,0,29,0.5);
         }
         .feature-row {
           display: flex;
@@ -233,260 +156,252 @@ export default function GraziePage() {
           line-height: 1.5;
         }
         .feature-row span:first-child { flex-shrink: 0; }
-        .price-tag {
+        .btn-upsell {
+          width: 100%;
+          padding: 18px;
+          border-radius: 10px;
+          border: none;
+          cursor: pointer;
           font-family: 'Bebas Neue', sans-serif;
-          letter-spacing: 1px;
+          font-size: 20px;
+          letter-spacing: 1.5px;
+          background: #e8001d;
+          color: #fff;
+          transition: all 0.2s;
+          box-shadow: 0 4px 20px rgba(232,0,29,0.4);
         }
-        .separator {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin: 40px 0 32px;
+        .btn-upsell:not(:disabled):hover {
+          background: #c0001a;
+          box-shadow: 0 4px 28px rgba(232,0,29,0.6);
+          transform: scale(1.01);
         }
-        .separator-line {
-          flex: 1;
-          height: 1px;
-          background: linear-gradient(to right, transparent, #333, transparent);
+        .btn-upsell:disabled { opacity: 0.4; cursor: not-allowed; }
+        .download-section {
+          animation: fadeIn 0.5s ease-out;
         }
-        .separator-text {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 13px;
-          letter-spacing: 3px;
-          color: #555;
-          white-space: nowrap;
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        @media (max-width: 640px) {
-          .cards-wrapper { flex-direction: column !important; align-items: center !important; }
-          .card { max-width: 100% !important; }
+        @keyframes pulse-border {
+          0%, 100% { border-color: rgba(232,0,29,0.3); }
+          50% { border-color: rgba(232,0,29,0.6); }
         }
+        .upsell-card { animation: pulse-border 3s infinite; }
       `}</style>
 
-      {/* ── HEADER CONFERMA ── */}
-      <div style={{ maxWidth: 600, margin: "0 auto", paddingTop: 56, textAlign: "center" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+      {/* ── HEADER CONFERMA (sempre visibile) ── */}
+      <div style={{ maxWidth: 500, margin: "0 auto", paddingTop: 48, textAlign: "center" }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>✅</div>
         <h1
           style={{
             fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 36,
+            fontSize: 32,
             letterSpacing: 2,
             color: "#f0f0f0",
-            marginBottom: 8,
+            marginBottom: 6,
           }}
         >
           Pagamento Confermato
         </h1>
-        <p style={{ color: "#888", fontSize: 15, marginBottom: 28 }}>
-          Il tuo PDF è pronto. Scaricalo subito qui sotto.
+        <p style={{ color: "#888", fontSize: 14, marginBottom: 0 }}>
+          Il tuo PDF è pronto.
         </p>
-        <a
-          href={pdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 10,
-            background: "#1a1a1a",
-            border: "1px solid #333",
-            borderRadius: 10,
-            padding: "14px 28px",
-            color: "#f0f0f0",
-            textDecoration: "none",
-            fontWeight: 600,
-            fontSize: 15,
-            transition: "border-color 0.2s",
-          }}
-        >
-          <span style={{ fontSize: 20 }}>📥</span>
-          Scarica il tuo PDF
-        </a>
       </div>
 
-      {/* ── UPSELL SECTION ── */}
-      {!dismissed && (
-        <div style={{ maxWidth: 880, margin: "0 auto" }}>
-          {/* Separatore */}
-          <div className="separator">
-            <div className="separator-line" />
-            <span className="separator-text">Offerta Esclusiva · Solo Per Te</span>
-            <div className="separator-line" />
-          </div>
+      {/* ═══ FASE 1: UPSELL PRIMA DEL DOWNLOAD ═══ */}
+      {!showDownload && (
+        <div style={{ maxWidth: 500, margin: "0 auto", paddingTop: 24 }}>
 
-          {/* Countdown */}
-          <div style={{ textAlign: "center", marginBottom: 10 }}>
-            <p style={{ color: "#888", fontSize: 13, marginBottom: 8 }}>
-              Questa offerta scompare tra:
+          {/* Gancio emotivo */}
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <p style={{ color: "#e8001d", fontSize: 13, fontWeight: 600, letterSpacing: 1, marginBottom: 6 }}>
+              ⚡ PRIMA DI SCARICARE
             </p>
-            <CountdownBadge m={m} s={s} expired={expired} />
+            <h2
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: "clamp(24px, 5vw, 34px)",
+                letterSpacing: 1.5,
+                color: "#f0f0f0",
+                lineHeight: 1.2,
+                marginBottom: 6,
+              }}
+            >
+              Scoprire non basta.
+              <br />
+              <span style={{ color: "#e8001d" }}>Devi sapere cosa fare dopo.</span>
+            </h2>
+            <p style={{ color: "#666", fontSize: 13, lineHeight: 1.6 }}>
+              Il 90% delle persone scopre la verità e poi fa gli errori peggiori.
+              <br />Questo ebook ti dice esattamente cosa fare — e cosa NON fare.
+            </p>
           </div>
 
-          <h2
-            style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "clamp(26px, 5vw, 38px)",
-              letterSpacing: 2,
-              color: "#f0f0f0",
-              textAlign: "center",
-              marginTop: 16,
-              marginBottom: 6,
-            }}
-          >
-            Hai Fatto il Primo Passo.
-          </h2>
-          <p style={{ color: "#777", fontSize: 14, textAlign: "center", marginBottom: 36 }}>
-            Ma chi ha vissuto questa situazione sa che il primo passo non basta mai.
-          </p>
+          {/* Card unica — €19,99 */}
+          <div className="upsell-card">
+            {/* Glow */}
+            <div
+              style={{
+                position: "absolute",
+                top: -50,
+                right: -50,
+                width: 180,
+                height: 180,
+                background: "radial-gradient(circle, rgba(232,0,29,0.1), transparent 70%)",
+                pointerEvents: "none",
+              }}
+            />
 
-          {/* Cards */}
-          <div className="cards-wrapper" style={{ display: "flex", gap: 20, justifyContent: "center" }}>
-            {/* ── CARD 1: €19,99 ── */}
-            <div className="card card-1">
-              <div>
-                <span style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#e8001d", fontWeight: 600 }}>
-                  Ebook Pratico
-                </span>
-              </div>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, letterSpacing: 1, color: "#f0f0f0", lineHeight: 1.2 }}>
-                Come Ho Scoperto la Verità
-              </h3>
-              <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>
-                Una storia vera. Una guida concreta. Scritta da chi ci è passata
-                e vuole tenerti per mano nel momento più difficile.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-                  ["📖", "50 pagine di storia vera — non teoria, non consigli vuoti"],
-                  ["💬", "Script pronti parola per parola per il confronto"],
-                  ["✅", "Checklist emotiva e legale: cosa fare nelle prime 24 ore"],
-                  ["🚫", "Errori che il 90% delle persone fa — e come evitarli"],
-                  ["🛡️", "Strategie di protezione personale prima, durante e dopo"],
-                ].map(([icon, text], i) => (
-                  <div className="feature-row" key={i}>
-                    <span>{icon}</span>
-                    <span>{text}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 4 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span className="price-tag" style={{ fontSize: 36, color: "#f0f0f0" }}>€19,99</span>
-                  <span style={{ fontSize: 12, color: "#555", textDecoration: "line-through" }}>€49,99</span>
-                </div>
-                <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>Download PDF immediato</p>
-              </div>
-              <button className="btn btn-1" disabled={expired} onClick={() => handleBuy(STRIPE_EBOOK1, "ebook_pratico", 19.99)}>
-                Voglio Questo Ebook →
-              </button>
-            </div>
-
-            {/* ── CARD 2: €49,99 ── */}
-            <div className="card card-2">
-              {/* glow bg */}
-              <div
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <span style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#e8001d", fontWeight: 600 }}>
+                📖 Ebook — 50 Pagine
+              </span>
+              <span
                 style={{
-                  position: "absolute",
-                  top: -60,
-                  right: -60,
-                  width: 200,
-                  height: 200,
-                  background: "radial-gradient(circle, rgba(232,0,29,0.12), transparent 70%)",
-                  pointerEvents: "none",
-                }}
-              />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <span style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#e8001d", fontWeight: 600 }}>
-                  ⚡ Più Venduto
-                </span>
-                <span
-                  className="censura-badge"
-                  style={{ boxShadow: glowing ? "0 0 12px rgba(232,0,29,0.8)" : "0 0 4px rgba(232,0,29,0.3)" }}
-                >
-                  ⛔ CONTENUTO RIMOSSO 2×
-                </span>
-              </div>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, letterSpacing: 1, color: "#f0f0f0", lineHeight: 1.2 }}>
-                Dalla Sua Parte del Letto
-                <br />
-                <span style={{ color: "#e8001d" }}>— Cosa Pensa Davvero Quando Ti Mente</span>
-              </h3>
-              {/* Avviso censura */}
-              <div
-                style={{
-                  background: "rgba(232,0,29,0.07)",
-                  border: "1px solid rgba(232,0,29,0.2)",
-                  borderRadius: 8,
-                  padding: "10px 14px",
-                  fontSize: 12,
-                  color: "#cc3333",
-                  lineHeight: 1.6,
+                  fontFamily: "monospace",
+                  fontSize: 13,
+                  color: "#ff4444",
+                  background: "rgba(232,0,29,0.12)",
+                  border: "1px solid rgba(232,0,29,0.3)",
+                  borderRadius: 4,
+                  padding: "2px 8px",
+                  letterSpacing: 1,
                 }}
               >
-                ⚠️ <strong>Nota:</strong> Questo ebook è stato rimosso 2 volte da
-                altre piattaforme per i contenuti considerati troppo espliciti. Non
-                possiamo garantire che sarà ancora disponibile tra 24 ore.
-              </div>
-              <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>
-                37 confessioni reali di chi ha tradito. Scopri cosa pensavano
-                mentre ti guardavano negli occhi e mentivano. Cosa dicevano
-                all&apos;altra persona. Come nascondevano tutto.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-                  ["📕", "80+ pagine — 37 confessioni scritte da chi ha tradito"],
-                  ["🧠", "Cosa pensano davvero quando ti guardano e mentono"],
-                  ["💀", "Il momento esatto in cui decidono di farlo"],
-                  ["👁️", "Come nascondono tutto — i metodi che non conosci"],
-                  ["🔍", "I pattern dei traditori seriali — riconoscili subito"],
-                ].map(([icon, text], i) => (
-                  <div className="feature-row" key={i}>
-                    <span>{icon}</span>
-                    <span>{text}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 4 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span className="price-tag" style={{ fontSize: 36, color: "#e8001d" }}>€49,99</span>
-                  <span style={{ fontSize: 12, color: "#555", textDecoration: "line-through" }}>€99,99</span>
-                </div>
-                <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>Download PDF immediato · Accesso limitato</p>
-              </div>
-              <button className="btn btn-2" disabled={expired} onClick={() => handleBuy(STRIPE_EBOOK2, "ebook_segreto", 49.99)}>
-                Voglio il Libro Segreto →
-              </button>
+                {expired ? "⚠️ SCADUTA" : `⏱ ${m}:${s}`}
+              </span>
             </div>
+
+            <h3
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 26,
+                letterSpacing: 1,
+                color: "#f0f0f0",
+                lineHeight: 1.2,
+                marginBottom: 12,
+              }}
+            >
+              &ldquo;Come Ho Scoperto la Verità&rdquo;
+            </h3>
+
+            <p style={{ fontSize: 13, color: "#888", lineHeight: 1.7, marginBottom: 16 }}>
+              Una storia vera di chi ci è passato. Script pronti per il confronto,
+              checklist delle prime 24 ore, errori da evitare, strategie di protezione.
+              <strong style={{ color: "#ccc" }}> Non teoria — esperienza vissuta.</strong>
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              {[
+                ["📖", "50 pagine — storia vera, non consigli generici"],
+                ["💬", "Script pronti parola per parola per il confronto"],
+                ["✅", "Checklist: cosa fare nelle prime 24 ore"],
+                ["🚫", "I 6 errori che il 90% delle persone fa"],
+                ["🛡️", "Come proteggerti prima, durante e dopo"],
+              ].map(([icon, text], i) => (
+                <div className="feature-row" key={i}>
+                  <span>{icon}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Prezzo */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 38, color: "#f0f0f0", letterSpacing: 1 }}>
+                €19,99
+              </span>
+              <span style={{ fontSize: 13, color: "#555", textDecoration: "line-through" }}>€49,99</span>
+              <span style={{ fontSize: 11, color: "#e8001d", fontWeight: 600, marginLeft: 4 }}>-60%</span>
+            </div>
+
+            {/* CTA */}
+            <button className="btn-upsell" disabled={expired} onClick={handleBuy}>
+              Aggiungi e Scarica Tutto — €19,99 →
+            </button>
+
+            <p style={{ textAlign: "center", fontSize: 11, color: "#555", marginTop: 8 }}>
+              Download immediato · Pagamento sicuro Stripe
+            </p>
           </div>
 
-          {/* Dismiss */}
-          <div style={{ textAlign: "center", marginTop: 28 }}>
+          {/* Skip — piccolo, sotto */}
+          <div style={{ textAlign: "center", marginTop: 24 }}>
             <button
-              onClick={() => {
-                trackEvent("upsell_dismiss");
-                setDismissed(true);
-              }}
+              onClick={handleSkip}
               style={{
                 background: "none",
                 border: "none",
-                color: "#444",
-                fontSize: 12,
+                color: "#333",
+                fontSize: 11,
                 cursor: "pointer",
-                textDecoration: "underline",
                 padding: "8px 16px",
               }}
             >
-              No grazie, mi basta quello che ho
+              No grazie, scarica solo il PDF base →
             </button>
           </div>
         </div>
       )}
 
+      {/* ═══ FASE 2: DOWNLOAD (dopo dismiss o dopo click upsell) ═══ */}
+      {showDownload && (
+        <div className="download-section" style={{ maxWidth: 500, margin: "0 auto", paddingTop: 32, textAlign: "center" }}>
+          <p style={{ color: "#888", fontSize: 15, marginBottom: 24 }}>
+            Ecco il tuo PDF. Scaricalo subito.
+          </p>
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: 10,
+              padding: "16px 32px",
+              color: "#f0f0f0",
+              textDecoration: "none",
+              fontWeight: 600,
+              fontSize: 16,
+              transition: "border-color 0.2s",
+            }}
+          >
+            <span style={{ fontSize: 20 }}>📥</span>
+            Scarica il tuo PDF
+          </a>
+
+          <div
+            style={{
+              marginTop: 32,
+              background: "#111",
+              border: "1px solid #1a1a1a",
+              borderRadius: 10,
+              padding: "16px 20px",
+              textAlign: "left",
+            }}
+          >
+            <p style={{ fontSize: 12, color: "#666", lineHeight: 1.6 }}>
+              💡 Salvalo subito sul telefono. Puoi leggerlo quando vuoi, anche offline.
+              Se hai problemi, scrivi a{" "}
+              <a href="mailto:supporto@tihatradito.site" style={{ color: "#e8001d" }}>
+                supporto@tihatradito.site
+              </a>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      <div style={{ maxWidth: 600, margin: "60px auto 0", textAlign: "center", color: "#333", fontSize: 11 }}>
-        <p>© tihatradito.site · Tutti i diritti riservati · I PDF sono prodotti digitali, il download è immediato dopo il pagamento.</p>
+      <div style={{ maxWidth: 500, margin: "60px auto 0", textAlign: "center", color: "#333", fontSize: 11 }}>
+        <p>© tihatradito.site · Tutti i diritti riservati</p>
         <p style={{ marginTop: 6 }}>
-          Acquistando accetti i nostri{" "}
-          <a href="/termini" style={{ color: "#555" }}>Termini e Condizioni</a>.
-          Nessun rimborso per prodotti digitali scaricati (Dir. UE 2011/83/UE art. 16m).
+          <a href="/termini" style={{ color: "#444" }}>Termini e Condizioni</a>
+          {" · "}
+          <a href="/privacy" style={{ color: "#444" }}>Privacy Policy</a>
         </p>
       </div>
     </div>
