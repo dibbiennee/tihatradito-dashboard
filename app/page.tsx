@@ -269,7 +269,7 @@ export default function Home() {
   // Pricing tiers — €0.99 rimosso, 3 tier diretti
   const starterLink = "https://buy.stripe.com/7sY3cufHQe7u1Egay52Nq04";   // €2.99
   const proLink = "https://buy.stripe.com/8x228qgLU3sQ2IkbC92Nq05";       // €9.99
-  const ultimateLink = "https://buy.stripe.com/3cIbJ0fHQ1kI0AcfSp2Nq06";   // €19.99
+  const ultimateLink = "https://buy.stripe.com/3cIbJ0fHQ1kI0AcfSp2Nq06";   // €24.99
 
   const handleCTA = () => {
     trackEvent("cta_click", { score, risk: result.risk });
@@ -577,20 +577,20 @@ export default function Home() {
                   <p className="text-center text-[11px] text-muted">Il 78% delle persone sceglie questo</p>
                 </div>
 
-                {/* ─── TIER 3: €19.99 ULTIMATE ─── */}
+                {/* ─── TIER 3: €24.99 ACCESSO TOTALE ─── */}
                 <div className="relative bg-bg2 border border-amber-500/30 rounded-2xl p-5 transition-all duration-200">
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold px-4 py-1 rounded-full">
-                    👑 GARANZIA TOTALE
+                    🔐 ACCESSO TOTALE
                   </div>
                   <div className="flex justify-between items-start mb-3 mt-1">
                     <div>
-                      <p className="text-xs text-amber-400 uppercase tracking-widest font-semibold mb-1">Ultimate</p>
-                      <p className="text-2xl font-bold">€19,99</p>
+                      <p className="text-xs text-amber-400 uppercase tracking-widest font-semibold mb-1">Tutto + Protezione</p>
+                      <p className="text-2xl font-bold">€24,99</p>
                     </div>
                     <span className="text-muted line-through text-sm mt-1">€89,99</span>
                   </div>
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-1.5 mb-4 inline-block">
-                    <p className="text-[11px] text-amber-400">♾️ Accesso <span className="font-bold">PER SEMPRE</span> + aggiornamenti a vita</p>
+                    <p className="text-[11px] text-amber-400">♾️ Accesso <span className="font-bold">PER SEMPRE</span> + protezione completa</p>
                   </div>
                   <div className="flex flex-col gap-2 mb-5">
                     {[
@@ -598,8 +598,9 @@ export default function Home() {
                       "Accesso permanente — per sempre tuo",
                       "Guida anti-scoperta: non saprà mai nulla",
                       "Metodo per controllare 2+ dispositivi",
-                      "Supporto prioritario via email",
+                      "⚖️ Checklist legale per proteggerti in caso di separazione",
                       "Bonus: segnali di manipolazione emotiva",
+                      "Supporto prioritario via email",
                       "Aggiornamenti gratuiti per sempre",
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
@@ -609,10 +610,10 @@ export default function Home() {
                     ))}
                   </div>
                   <button
-                    onClick={() => handleTierClick("ultimate", "19.99", ultimateLink)}
+                    onClick={() => handleTierClick("ultimate", "24.99", ultimateLink)}
                     className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-sm py-3.5 rounded-xl transition-all duration-200 active:scale-[0.97]"
                   >
-                    Vai sul sicuro — €19,99 →
+                    Protezione totale — €24,99 →
                   </button>
                 </div>
 
