@@ -121,6 +121,7 @@ function useCountdown(minutes: number) {
 export default function Home() {
   const [step, setStep] = useState(0); // 0-2 = quiz questions, 3 = result
   const [answers, setAnswers] = useState<number[]>([]);
+  const [upsellStep, setUpsellStep] = useState(0); // 0=none, 1=upsell €2.99, 2=upsell €9.99
   const countdown = useCountdown(14);
 
   // Track page view + scroll + time
@@ -203,10 +204,14 @@ export default function Home() {
 
   const baseLink =
     process.env.NEXT_PUBLIC_STRIPE_BASE_LINK || "#";
+  const upsellLink =
+    process.env.NEXT_PUBLIC_STRIPE_UPSELL_LINK || baseLink;
+  const premiumLink =
+    process.env.NEXT_PUBLIC_STRIPE_PREMIUM_LINK || upsellLink;
 
   const handleCTA = () => {
     trackEvent("cta_click", { score, risk: result.risk });
-    window.location.href = baseLink;
+    setUpsellStep(1);
   };
 
   return (
@@ -411,6 +416,111 @@ export default function Home() {
           </section>
 
         </>
+      )}
+
+      {/* ─── UPSELL STEP 1: €2.99 ─── */}
+      {upsellStep === 1 && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/70" />
+          <div
+            className="relative w-full max-w-lg bg-bg2 border-t border-border rounded-t-3xl p-6 pb-10 slide-up no-scrollbar"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
+            <div className="text-center mb-4">
+              <div className="inline-block bg-red/10 text-red text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
+                🔥 Solo per te — offerta unica
+              </div>
+              <h3 className="text-2xl mb-2">Vuoi anche i metodi avanzati?</h3>
+              <p className="text-muted text-sm">
+                A soli €2,99 invece di €14,99 — solo adesso
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5 mb-6">
+              {[
+                "Come recuperare i messaggi cancellati",
+                "Metodo per leggere le chat archiviate",
+                "Trucco per vedere i messaggi che elimina",
+                "Funziona anche su Instagram e Snapchat",
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm">
+                  <span className="text-red">✓</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                trackEvent("upsell_yes", { from: "0.99", to: "2.99" });
+                setUpsellStep(2);
+              }}
+              className="block w-full bg-red hover:bg-red-dark text-white font-bold text-base py-4 rounded-xl text-center transition-all duration-200 active:scale-[0.97] mb-3"
+            >
+              Sì, voglio i metodi avanzati — €2,99 →
+            </button>
+            <button
+              onClick={() => {
+                trackEvent("upsell_no", { step: 1, target: "base" });
+                window.location.href = baseLink;
+              }}
+              className="block w-full text-center text-muted text-sm py-2 hover:text-txt transition-colors"
+            >
+              No grazie, voglio solo quello base →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── UPSELL STEP 2: €9.99 ─── */}
+      {upsellStep === 2 && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/70" />
+          <div
+            className="relative w-full max-w-lg bg-bg2 border-t border-border rounded-t-3xl p-6 pb-10 slide-up no-scrollbar"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
+            <div className="text-center mb-4">
+              <div className="inline-block bg-amber-500/10 text-amber-400 text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
+                👑 Ultima offerta — il pacchetto completo
+              </div>
+              <h3 className="text-2xl mb-2">Vuoi il controllo totale?</h3>
+              <p className="text-muted text-sm">
+                A soli €9,99 invece di €49,99 — non lo vedrai più
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5 mb-6">
+              {[
+                "Tutto quello dei pacchetti precedenti",
+                "Come spiare la posizione in tempo reale",
+                "Metodo per accedere alla galleria foto",
+                "Vedere chi segue e chi lo segue di nascosto",
+                "Aggiornamenti gratuiti per sempre",
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm">
+                  <span className="text-amber-400">✓</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <a
+              href={premiumLink}
+              onClick={() => trackEvent("upsell_yes", { from: "2.99", to: "9.99" })}
+              className="block w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-base py-4 rounded-xl text-center transition-all duration-200 active:scale-[0.97] mb-3"
+            >
+              Sì, voglio il controllo totale — €9,99 →
+            </a>
+            <button
+              onClick={() => {
+                trackEvent("upsell_no", { step: 2, target: "upsell" });
+                window.location.href = upsellLink;
+              }}
+              className="block w-full text-center text-muted text-sm py-2 hover:text-txt transition-colors"
+            >
+              No grazie, procedo con €2,99 →
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ─── FOOTER ─── */}

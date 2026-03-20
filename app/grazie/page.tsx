@@ -18,11 +18,15 @@ function trackEvent(type: string, data: Record<string, unknown> = {}) {
   }
 }
 
-// Map Stripe Payment Link IDs to prices
+// Map Stripe Payment Link IDs to prices (new account)
 const STRIPE_PRICES: Record<string, number> = {
-  "3hg9IQ0p": 0.99,   // Profilo A — base
-  "dVU9IQ0q": 2.99,   // Profilo B — upsell
-  "7xw9IQ0r": 9.99,   // Profilo C — premium
+  "bC92Nq03": 0.99,   // Base — €0.99
+  "y52Nq04": 2.99,    // Upsell — €2.99
+  "bC92Nq05": 9.99,   // Premium — €9.99
+  // Old links (keep for safety)
+  "3hg9IQ0p": 0.99,
+  "dVU9IQ0q": 2.99,
+  "7xw9IQ0r": 9.99,
 };
 
 function detectPrice(): number {
